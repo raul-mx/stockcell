@@ -449,8 +449,11 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
 
 <!-- VISOR DE FOTO -->
 <div class="foto-viewer" id="fotoViewer" onclick="cerrarFoto()">
+  <div class="foto-viewer-bg" id="fotoViewerBg"></div>
   <button class="foto-viewer-close" onclick="cerrarFoto()">✕</button>
-  <img id="fotoViewerImg" src="" alt="Foto producto">
+  <div class="foto-viewer-wrap" onclick="event.stopPropagation()">
+    <img id="fotoViewerImg" src="" alt="Foto producto" onclick="cerrarFoto()">
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1084,11 +1087,16 @@ function toast(msg,tipo){
 function verFoto(url){
   if(!url) return;
   document.getElementById('fotoViewerImg').src=url;
+  document.getElementById('fotoViewerBg').style.backgroundImage='url('+url+')';
   document.getElementById('fotoViewer').classList.add('open');
+  document.body.style.overflow='hidden';
 }
+
 function cerrarFoto(){
   document.getElementById('fotoViewer').classList.remove('open');
   document.getElementById('fotoViewerImg').src='';
+  document.getElementById('fotoViewerBg').style.backgroundImage='';
+  document.body.style.overflow='';
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarFoto();});
 
