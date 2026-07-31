@@ -447,6 +447,12 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
   </div>
 </div>
 
+<!-- VISOR DE FOTO -->
+<div class="foto-viewer" id="fotoViewer" onclick="cerrarFoto()">
+  <button class="foto-viewer-close" onclick="cerrarFoto()">✕</button>
+  <img id="fotoViewerImg" src="" alt="Foto producto">
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -585,7 +591,7 @@ function renderTable(){
     var pill=p.stock===0?'<span class="stock-pill stock-out"><span class="dot"></span>Agotado</span>':
              p.stock<=p.min?'<span class="stock-pill stock-low"><span class="dot"></span>'+p.stock+'</span>':
              '<span class="stock-pill stock-ok"><span class="dot"></span>'+p.stock+'</span>';
-    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onerror="this.style.display=\'none\'">':
+    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onclick="verFoto(\''+esc(p.foto_url)+'\')" style="cursor:zoom-in" onerror="this.style.display=\'none\'">':
                '<div class="prod-foto-placeholder">📦</div>';
     html+='<tr class="'+rc+'">'+
       '<td>'+fotoEl+'</td>'+
@@ -842,7 +848,7 @@ function renderHistory(){
   el.innerHTML=data.map(function(h){
     var badgeCls=h.tipo==='venta'?'hi-venta':h.tipo==='entrada'?'hi-in':'hi-out';
     var badgeTxt=h.tipo==='venta'?'💳 -'+h.qty:h.tipo==='entrada'?'+'+h.qty:'-'+h.qty;
-    var fotoEl=h.foto&&h.foto.indexOf('data:')===0?'<img class="hi-foto" src="'+h.foto+'">':
+    var fotoEl=h.foto&&h.foto.indexOf('data:')===0?'<img class="hi-foto" src="'+h.foto+'" onclick="verFoto(\''+h.foto+'\')" style="cursor:zoom-in">':
                '<div class="hi-foto-ph">📦</div>';
     return '<div class="history-item">'+
       '<div class="hi-left">'+fotoEl+
@@ -1073,6 +1079,18 @@ function toast(msg,tipo){
   clearTimeout(el._t);
   el._t=setTimeout(function(){el.classList.remove('show');},2800);
 }
+
+/* VISOR DE FOTO */
+function verFoto(url){
+  if(!url) return;
+  document.getElementById('fotoViewerImg').src=url;
+  document.getElementById('fotoViewer').classList.add('open');
+}
+function cerrarFoto(){
+  document.getElementById('fotoViewer').classList.remove('open');
+  document.getElementById('fotoViewerImg').src='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarFoto();});
 
 /* INIT — sincronizar automáticamente al abrir */
 renderStats();
