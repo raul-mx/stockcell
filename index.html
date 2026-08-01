@@ -761,10 +761,19 @@ function buscarParaVenta(){
     document.getElementById('ventaMeta').textContent=(p.categoria||'')+'  ·  Stock: '+p.stock+'  ·  $'+Number(p.precio).toFixed(2);
     var fotoEl=document.getElementById('ventaProdFoto');
     if(p.foto_url&&p.foto_url.indexOf('http')===0){
-      fotoEl.outerHTML='<img id="ventaProdFoto" class="scan-prod-foto" src="'+esc(p.foto_url)+'">';
+      var newEl=document.createElement('img');
+      newEl.id='ventaProdFoto';
+      newEl.className='scan-prod-foto';
+      newEl.src=p.foto_url;
+      newEl.style.cursor='zoom-in';
+      newEl.onclick=function(e){e.preventDefault();e.stopPropagation();verFoto(p.foto_url);};
+      fotoEl.parentNode.replaceChild(newEl,fotoEl);
     } else {
-      if(fotoEl.tagName==='IMG'){fotoEl.outerHTML='<div id="ventaProdFoto" class="scan-prod-foto-ph">📦</div>';}
-      else{fotoEl.textContent='📦';}
+      if(fotoEl.tagName==='IMG'){
+        var ph=document.createElement('div');
+        ph.id='ventaProdFoto';ph.className='scan-prod-foto-ph';ph.textContent='📦';
+        fotoEl.parentNode.replaceChild(ph,fotoEl);
+      } else {fotoEl.textContent='📦';}
     }
     document.getElementById('ventaLocal').value=localActual();
     vc.style.display='block';vn.style.display='none';
