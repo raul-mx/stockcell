@@ -450,11 +450,11 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
 </div>
 
 <!-- VISOR DE FOTO -->
-<div class="foto-viewer" id="fotoViewer" onclick="cerrarFoto()">
-  <div class="foto-viewer-bg" id="fotoViewerBg"></div>
-  <button class="foto-viewer-close" onclick="cerrarFoto()">✕</button>
-  <div class="foto-viewer-wrap" onclick="event.stopPropagation()">
-    <img id="fotoViewerImg" src="" alt="Foto producto" onclick="cerrarFoto()">
+<div id="fotoViewer" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;background:rgba(0,0,0,.93);" onclick="cerrarFoto()">
+  <button onclick="cerrarFoto()" style="position:fixed;top:12px;right:12px;z-index:100000;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:1.4rem;width:44px;height:44px;border-radius:50%;cursor:pointer;font-weight:bold;">✕</button>
+  <div id="fotoViewerBg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px) brightness(.3);transform:scale(1.1);"></div>
+  <div style="position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;" onclick="event.stopPropagation()">
+    <img id="fotoViewerImg" src="" alt="" style="max-width:100vw;max-height:100vh;width:100vw;height:100vh;object-fit:contain;display:block;" onclick="cerrarFoto()">
   </div>
 </div>
 
@@ -596,7 +596,7 @@ function renderTable(){
     var pill=p.stock===0?'<span class="stock-pill stock-out"><span class="dot"></span>Agotado</span>':
              p.stock<=p.min?'<span class="stock-pill stock-low"><span class="dot"></span>'+p.stock+'</span>':
              '<span class="stock-pill stock-ok"><span class="dot"></span>'+p.stock+'</span>';
-    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onerror="this.style.display=\'none\'" onclick="verFoto(this.src)">':
+    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onerror="this.style.display=\'none\'" onclick="event.preventDefault();event.stopPropagation();verFoto(\''+esc(p.foto_url)+'\');return false;">':
                '<div class="prod-foto-placeholder">📦</div>';
     html+='<tr class="'+rc+'">'+
       '<td>'+fotoEl+'</td>'+
