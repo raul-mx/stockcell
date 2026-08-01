@@ -596,7 +596,7 @@ function renderTable(){
     var pill=p.stock===0?'<span class="stock-pill stock-out"><span class="dot"></span>Agotado</span>':
              p.stock<=p.min?'<span class="stock-pill stock-low"><span class="dot"></span>'+p.stock+'</span>':
              '<span class="stock-pill stock-ok"><span class="dot"></span>'+p.stock+'</span>';
-    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onclick="verFoto(\''+esc(p.foto_url)+'\')" style="cursor:zoom-in" onerror="this.style.display=\'none\'">':
+    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onerror="this.style.display=\'none\'" onclick="verFoto(this.src)">':
                '<div class="prod-foto-placeholder">📦</div>';
     html+='<tr class="'+rc+'">'+
       '<td>'+fotoEl+'</td>'+
@@ -1087,15 +1087,18 @@ function toast(msg,tipo){
 
 /* VISOR DE FOTO */
 function verFoto(url){
-  if(!url) return;
-  document.getElementById('fotoViewerImg').src=url;
-  document.getElementById('fotoViewerBg').style.backgroundImage='url('+url+')';
-  document.getElementById('fotoViewer').classList.add('open');
+  if(!url||url==='') return;
+  var viewer=document.getElementById('fotoViewer');
+  var img=document.getElementById('fotoViewerImg');
+  var bg=document.getElementById('fotoViewerBg');
+  img.src=url;
+  bg.style.backgroundImage='url("'+url+'")';
+  viewer.style.display='flex';
   document.body.style.overflow='hidden';
 }
 
 function cerrarFoto(){
-  document.getElementById('fotoViewer').classList.remove('open');
+  document.getElementById('fotoViewer').style.display='none';
   document.getElementById('fotoViewerImg').src='';
   document.getElementById('fotoViewerBg').style.backgroundImage='';
   document.body.style.overflow='';
