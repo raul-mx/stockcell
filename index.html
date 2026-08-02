@@ -243,11 +243,68 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
 <!-- ===== INVENTARIO ===== -->
 <div class="panel active" id="panel-inventario">
   <div class="stats-grid" id="statsGrid"></div>
+  <!-- BUSCADOR GRANDE -->
+  <div id="buscadorPanel" style="margin-bottom:18px;">
+    <!-- Botón grande inicial -->
+    <div id="buscadorInicio" style="display:flex;gap:12px;margin-bottom:12px;">
+      <button onclick="abrirBuscador('camara')" style="flex:1;padding:22px 10px;border-radius:16px;
+        background:var(--card);border:2px solid var(--accent);color:var(--accent);
+        font-size:1rem;font-weight:800;cursor:pointer;display:flex;flex-direction:column;
+        align-items:center;gap:8px;transition:all .2s;" onmouseover="this.style.background='rgba(0,229,160,.1)'" onmouseout="this.style.background='var(--card)'">
+        <span style="font-size:2rem;">📷</span>
+        <span>Escanear código</span>
+        <span style="font-size:.75rem;color:var(--muted);font-weight:400">Usa la cámara</span>
+      </button>
+      <button onclick="abrirBuscador('texto')" style="flex:1;padding:22px 10px;border-radius:16px;
+        background:var(--card);border:2px solid var(--border);color:var(--text);
+        font-size:1rem;font-weight:800;cursor:pointer;display:flex;flex-direction:column;
+        align-items:center;gap:8px;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="font-size:2rem;">🔍</span>
+        <span>Buscar texto</span>
+        <span style="font-size:.75rem;color:var(--muted);font-weight:400">Nombre o código</span>
+      </button>
+    </div>
+
+    <!-- Panel cámara -->
+    <div id="buscadorCamara" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span style="font-weight:700;color:var(--accent)">📷 Escanear código de barras</span>
+        <button onclick="cerrarBuscador()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+      <div class="cam-btns">
+        <button class="btn btn-primary" id="btnCamInv" onclick="iniciarCamara('inv')">📷 Activar cámara</button>
+        <button class="btn btn-secondary" id="btnCamInvStop" onclick="detenerCamara('inv')" style="display:none">⏹ Detener</button>
+      </div>
+      <div class="cam-wrap" id="camWrapInv" style="margin-top:12px;">
+        <video id="camVideoInv" autoplay playsinline muted></video>
+        <div class="cam-overlay">
+          <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+          <div class="cam-line"></div>
+        </div>
+      </div>
+      <div class="cam-status" id="camStatusInv"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <input class="search-box" type="text" id="searchInputCam" placeholder="O escribe el código..." oninput="renderTable(this.value)">
+      </div>
+    </div>
+
+    <!-- Panel texto -->
+    <div id="buscadorTexto" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span style="font-weight:700;">🔍 Buscar producto</span>
+        <button onclick="cerrarBuscador()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input class="search-box" type="text" id="searchInput" placeholder="Nombre, código, categoría..." oninput="renderTable()" autofocus style="flex:1;min-width:200px;">
+        <select class="search-box" id="filterCat" onchange="renderTable()" style="flex:0 0 auto;">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
   <div class="toolbar">
-    <input class="search-box" type="text" id="searchInput" placeholder="🔍 Buscar..." oninput="renderTable()">
-    <select class="search-box" id="filterCat" onchange="renderTable()">
-      <option value="">Todas las categorías</option>
-    </select>
     <button class="btn btn-primary" onclick="openAddModal()">＋ Agregar</button>
     <button class="btn btn-warn" onclick="openImportModal()">📂 Importar</button>
     <button class="btn btn-print" onclick="exportarCSV()">⬇ CSV</button>
@@ -591,9 +648,46 @@ function renderStats(){
   document.getElementById('badgeAlerta').style.display=(low+out)>0?'inline-block':'none';
 }
 
-function renderTable(){
+/* ============================================================
+   BUSCADOR GRANDE
+============================================================ */
+function abrirBuscador(tipo){
+  document.getElementById('buscadorCamara').style.display='none';
+  document.getElementById('buscadorTexto').style.display='none';
+  detenerCamara('inv');
+  if(tipo==='camara'){
+    document.getElementById('buscadorCamara').style.display='block';
+    // Iniciar cámara automáticamente
+    setTimeout(function(){iniciarCamara('inv');},200);
+  } else {
+    document.getElementById('buscadorTexto').style.display='block';
+    setTimeout(function(){
+      var el=document.getElementById('searchInput');
+      if(el) el.focus();
+    },100);
+  }
+}
+
+function cerrarBuscador(){
+  detenerCamara('inv');
+  document.getElementById('buscadorCamara').style.display='none';
+  document.getElementById('buscadorTexto').style.display='none';
+  renderTable();
+}
+
+function renderTable(qOverride){
   renderStats();
-  var q=document.getElementById('searchInput').value.toLowerCase();
+  // Obtener query de cualquier campo activo
+  var q='';
+  var camInput=document.getElementById('searchInputCam');
+  var txtInput=document.getElementById('searchInput');
+  if(qOverride!==undefined){
+    q=String(qOverride).toLowerCase();
+  } else if(camInput&&camInput.value){
+    q=camInput.value.toLowerCase();
+  } else if(txtInput){
+    q=txtInput.value.toLowerCase();
+  }
   var cat=document.getElementById('filterCat').value;
   var cats={};
   for(var i=0;i<inv.length;i++)if(inv[i].categoria)cats[inv[i].categoria]=1;
@@ -1168,65 +1262,6 @@ function autoSync(){
       setSyncStatus('err');
       renderStats(); renderTable();
     });
-}
-  var camStream=null,camTimer=null;
-function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
-function iniciarCamara(ctx){
-  var c=cap(ctx);
-  var video=document.getElementById('camVideo'+c);
-  var wrap=document.getElementById('camWrap'+c);
-  var status=document.getElementById('camStatus'+c);
-  document.getElementById('btnCam'+c).style.display='none';
-  document.getElementById('btnCam'+c+'Stop').style.display='inline-flex';
-  status.textContent='Solicitando cámara...';
-  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}})
-  .then(function(stream){
-    camStream=stream;
-    video.srcObject=stream;
-    video.play();
-    wrap.style.display='block';
-    status.textContent='📡 Apunta al código de barras...';
-    if('BarcodeDetector' in window){
-      var det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});
-      var ul='',ut=0;
-      camTimer=setInterval(function(){
-        if(video.readyState<2)return;
-        det.detect(video).then(function(r){
-          if(!r.length)return;
-          var code=r[0].rawValue,now=Date.now();
-          if(code===ul&&now-ut<3000)return;
-          ul=code;ut=now;
-          if(navigator.vibrate)navigator.vibrate(200);
-          status.textContent='✅ '+code;
-          document.getElementById(ctx==='venta'?'ventaCodigo':'manualCode').value=code;
-          detenerCamara(ctx);
-          setTimeout(function(){ctx==='venta'?buscarParaVenta():buscarCodigo();},300);
-        }).catch(function(){});
-      },400);
-    } else {
-      status.textContent='📡 Cámara activa — escribe el código que ves abajo';
-    }
-  }).catch(function(e){
-    status.textContent='';
-    document.getElementById('btnCam'+c).style.display='inline-flex';
-    document.getElementById('btnCam'+c+'Stop').style.display='none';
-    toast('⚠ '+e.message,'err');
-  });
-}
-function detenerCamara(ctx){
-  if(camTimer){clearInterval(camTimer);camTimer=null;}
-  if(camStream){camStream.getTracks().forEach(function(t){t.stop();});camStream=null;}
-  var c=cap(ctx);
-  var v=document.getElementById('camVideo'+c);
-  if(v)v.srcObject=null;
-  var w=document.getElementById('camWrap'+c);
-  if(w)w.style.display='none';
-  var bs=document.getElementById('btnCam'+c);
-  if(bs)bs.style.display='inline-flex';
-  var bst=document.getElementById('btnCam'+c+'Stop');
-  if(bst)bst.style.display='none';
-  var st=document.getElementById('camStatus'+c);
-  if(st)st.textContent='';
 }
 </script>
 </body>
