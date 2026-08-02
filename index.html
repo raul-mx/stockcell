@@ -1169,6 +1169,65 @@ function autoSync(){
       renderStats(); renderTable();
     });
 }
+  var camStream=null,camTimer=null;
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function iniciarCamara(ctx){
+  var c=cap(ctx);
+  var video=document.getElementById('camVideo'+c);
+  var wrap=document.getElementById('camWrap'+c);
+  var status=document.getElementById('camStatus'+c);
+  document.getElementById('btnCam'+c).style.display='none';
+  document.getElementById('btnCam'+c+'Stop').style.display='inline-flex';
+  status.textContent='Solicitando cámara...';
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}})
+  .then(function(stream){
+    camStream=stream;
+    video.srcObject=stream;
+    video.play();
+    wrap.style.display='block';
+    status.textContent='📡 Apunta al código de barras...';
+    if('BarcodeDetector' in window){
+      var det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']});
+      var ul='',ut=0;
+      camTimer=setInterval(function(){
+        if(video.readyState<2)return;
+        det.detect(video).then(function(r){
+          if(!r.length)return;
+          var code=r[0].rawValue,now=Date.now();
+          if(code===ul&&now-ut<3000)return;
+          ul=code;ut=now;
+          if(navigator.vibrate)navigator.vibrate(200);
+          status.textContent='✅ '+code;
+          document.getElementById(ctx==='venta'?'ventaCodigo':'manualCode').value=code;
+          detenerCamara(ctx);
+          setTimeout(function(){ctx==='venta'?buscarParaVenta():buscarCodigo();},300);
+        }).catch(function(){});
+      },400);
+    } else {
+      status.textContent='📡 Cámara activa — escribe el código que ves abajo';
+    }
+  }).catch(function(e){
+    status.textContent='';
+    document.getElementById('btnCam'+c).style.display='inline-flex';
+    document.getElementById('btnCam'+c+'Stop').style.display='none';
+    toast('⚠ '+e.message,'err');
+  });
+}
+function detenerCamara(ctx){
+  if(camTimer){clearInterval(camTimer);camTimer=null;}
+  if(camStream){camStream.getTracks().forEach(function(t){t.stop();});camStream=null;}
+  var c=cap(ctx);
+  var v=document.getElementById('camVideo'+c);
+  if(v)v.srcObject=null;
+  var w=document.getElementById('camWrap'+c);
+  if(w)w.style.display='none';
+  var bs=document.getElementById('btnCam'+c);
+  if(bs)bs.style.display='inline-flex';
+  var bst=document.getElementById('btnCam'+c+'Stop');
+  if(bst)bst.style.display='none';
+  var st=document.getElementById('camStatus'+c);
+  if(st)st.textContent='';
+}
 </script>
 </body>
 </html>
