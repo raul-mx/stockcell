@@ -803,6 +803,15 @@ function prevAddFoto(e){
   r.readAsDataURL(file);
 }
 
+function convertirUrlFoto(url){
+  if(!url) return '';
+  // Convertir Google Drive automáticamente
+  var m=url.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/);
+  if(m) return 'https://drive.google.com/uc?export=view&id='+m[1];
+  // Ya es URL directa (imgbb, etc)
+  return url;
+}
+
 function saveProduct(){
   var nombre=document.getElementById('fNombre').value.trim();
   if(!nombre){toast('⚠ El nombre es obligatorio','err');return;}
