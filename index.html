@@ -541,7 +541,7 @@ var IMGBB_API_KEY='2871163e042e517748370770af4240a5';
 /* ============================================================
    DATOS
 ============================================================ */
-var inv=[],hist=[],editId=null,lastCode='',pending=[],ventaProdId=null,ventaFotoB64='';
+var inv=[],hist=[],editId=null,lastCode='',pending=[],ventaProdId=null,ventaFotoB64='',ventaFotoSubiendo=false;
 
 try{inv=JSON.parse(localStorage.getItem('sc_inv')||'[]');}catch(e){inv=[];}
 try{hist=JSON.parse(localStorage.getItem('sc_his')||'[]');}catch(e){hist=[];}
@@ -915,12 +915,33 @@ function prevVentaFoto(e){
   var file=e.target.files[0];if(!file)return;
   var r=new FileReader();
   r.onload=function(ev){
-    ventaFotoB64=ev.target.result;
-    document.getElementById('ventaFotoPreview').src=ventaFotoB64;
+    document.getElementById('ventaFotoPreview').src=ev.target.result;
     document.getElementById('ventaFotoPreview').style.display='block';
     document.getElementById('ventaFotoPlaceholder').style.display='none';
   };
   r.readAsDataURL(file);
+
+  ventaFotoB64='';
+  ventaFotoSubiendo=true;
+  toast('Subiendo foto de comprobante...','info');
+
+  var fd=new FormData();
+  fd.append('image',file);
+  fetch('https://api.imgbb.com/1/upload?key='+IMGBB_API_KEY,{method:'POST',body:fd})
+    .then(function(res){return res.json();})
+    .then(function(data){
+      ventaFotoSubiendo=false;
+      if(data&&data.success&&data.data&&data.data.url){
+        ventaFotoB64=data.data.url;
+        toast('✓ Foto de comprobante subida');
+      }else{
+        toast('⚠ No se pudo subir la foto de comprobante','err');
+      }
+    })
+    .catch(function(){
+      ventaFotoSubiendo=false;
+      toast('⚠ Error de conexión al subir la foto','err');
+    });
 }
 
 function registrarVenta(){
@@ -928,6 +949,7 @@ function registrarVenta(){
   var qty=parseInt(document.getElementById('ventaCantidad').value)||1;
   var local=document.getElementById('ventaLocal').value;
   if(p.stock<qty){toast('⚠ Stock insuficiente ('+p.stock+' disponibles)','err');return;}
+  if(ventaFotoSubiendo){toast('⏳ Espera, la foto sigue subiendo...','info');return;}
   var btn=document.querySelector('#ventaCard .btn-primary');
   btn.disabled=true;btn.innerHTML='<span class="loading"></span> Registrando...';
   p.stock-=qty;addHist(p,'venta',qty,local,ventaFotoB64);save();renderStats();
