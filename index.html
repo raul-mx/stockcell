@@ -817,9 +817,7 @@ function convertirUrlFoto(url){
   return url;
 }
 
-foto_url:fotoRaw==='[foto_local]'
-      ? (document.getElementById('fFotoPreview').src||'')
-      : convertirUrlFoto(fotoRaw)
+foto_url:convertirUrlFoto(fotoRaw)
 
   var btn=document.getElementById('btnSave');
   btn.disabled=true;btn.innerHTML='<span class="loading"></span> Guardando...';
