@@ -817,22 +817,9 @@ function convertirUrlFoto(url){
   return url;
 }
 
-function saveProduct(){
-  var nombre=document.getElementById('fNombre').value.trim();
-  if(!nombre){toast('⚠ El nombre es obligatorio','err');return;}
-  var fotoRaw=document.getElementById('fFotoUrl').value.trim();
-  var obj={
-    nombre:nombre,
-    codigo:document.getElementById('fCodigo').value.trim(),
-    categoria:document.getElementById('fCategoria').value.trim(),
-    precio:parseFloat(document.getElementById('fPrecio').value)||0,
-    costo:parseFloat(document.getElementById('fCosto').value)||0,
-    stock:parseInt(document.getElementById('fStock').value)||0,
-    min:parseInt(document.getElementById('fMin').value)||5,
-    foto_url:fotoRaw==='[foto_local]'
+foto_url:fotoRaw==='[foto_local]'
       ? (document.getElementById('fFotoPreview').src||'')
       : convertirUrlFoto(fotoRaw)
-  };
 
   var btn=document.getElementById('btnSave');
   btn.disabled=true;btn.innerHTML='<span class="loading"></span> Guardando...';
