@@ -933,10 +933,14 @@ function registrarVenta(){
 ============================================================ */
 function addHist(p,tipo,qty,local,foto){
   hist.unshift({fecha:new Date().toLocaleString('es-MX'),nombre:p.nombre,codigo:p.codigo||'',
-    tipo:tipo,qty:qty,stockDespues:tipo==='entrada'?p.stock+qty:p.stock-qty,local:local||'',foto:foto||''});
+    tipo:tipo,qty:qty,stockDespues:tipo==='entrada'?p.stock+qty:p.stock-qty,local:local||'',foto:foto||'',fotoProd:p.foto_url||''});
   if(hist.length>500)hist.pop();save();
 }
-
+  function fotoDeHistorial(h){
+  if(h.foto&&h.foto.indexOf('data:')===0) return h.foto;
+  if(h.fotoProd&&h.fotoProd.indexOf('http')===0) return h.fotoProd;
+  return '';
+}
 function renderHistory(){
   var filtro=document.getElementById('histFiltro').value;
   var data=filtro?hist.filter(function(h){return h.tipo===filtro;}):hist;
@@ -945,7 +949,7 @@ function renderHistory(){
   el.innerHTML=data.map(function(h){
     var bc=h.tipo==='venta'?'hi-venta':h.tipo==='entrada'?'hi-in':'hi-out';
     var bt=h.tipo==='venta'?'💳 -'+h.qty:h.tipo==='entrada'?'+'+h.qty:'-'+h.qty;
-    var fe=h.foto&&h.foto.indexOf('data:')===0?'<img class="hi-foto" src="'+h.foto+'" onclick="verFoto(\''+h.foto+'\')" style="cursor:zoom-in">':'<div class="hi-foto-ph">📦</div>';
+   var fe=fotoDeHistorial(h)?'<img class="hi-foto" src="'+fotoDeHistorial(h)+'" onclick="verFoto(\''+fotoDeHistorial(h)+'\')" style="cursor:zoom-in">':'<div class="hi-foto-ph">📦</div>';
     return '<div class="history-item"><div class="hi-left">'+fe+
       '<div><div class="hi-name">'+esc(h.nombre)+'</div>'+
       '<div class="hi-meta">'+h.fecha+(h.local?' · '+h.local:'')+'</div></div></div>'+
