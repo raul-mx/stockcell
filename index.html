@@ -492,6 +492,25 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
   </div>
 </div>
 
+<!-- MODAL NOTA DE VENTA -->
+<div class="modal-overlay" id="modalNota">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">🧾 Nota de venta</span>
+      <button class="btn btn-secondary" onclick="closeNotaModal()" style="padding:5px 11px">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--muted);font-size:.8rem;margin-bottom:12px;">Edita, agrega o quita líneas antes de imprimir. Nada es fijo.</p>
+      <div id="notaCamposList"></div>
+      <button class="btn btn-secondary" onclick="agregarCampoNota()" style="margin-top:4px;width:100%;justify-content:center;">＋ Agregar línea</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeNotaModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="imprimirNota()">🖨️ Imprimir nota</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL IMPORTAR -->
 <div class="modal-overlay" id="modalImport">
   <div class="modal">
@@ -952,7 +971,9 @@ function registrarVenta(){
   if(ventaFotoSubiendo){toast('⏳ Espera, la foto sigue subiendo...','info');return;}
   var btn=document.querySelector('#ventaCard .btn-primary');
   btn.disabled=true;btn.innerHTML='<span class="loading"></span> Registrando...';
+  var nombreV=p.nombre,codigoV=p.codigo,precioV=p.precio,totalV=p.precio*qty,fechaV=new Date().toLocaleString('es-MX');
   p.stock-=qty;addHist(p,'venta',qty,local,ventaFotoB64);save();renderStats();
+  var stockV=p.stock;
   enviarASheets({
     accion:'venta',
     nombre:p.nombre||'',
@@ -965,10 +986,14 @@ function registrarVenta(){
   })
     .then(function(){
       btn.disabled=false;btn.innerHTML='💳 Confirmar venta y notificar Telegram';
-      toast('✓ Venta registrada y notificada en Telegram');resetVenta();
+      toast('✓ Venta registrada y notificada en Telegram');
+      abrirNotaVenta(nombreV,codigoV,precioV,qty,totalV,local,fechaV,stockV);
+      resetVenta();
     }).catch(function(){
       btn.disabled=false;btn.innerHTML='💳 Confirmar venta y notificar Telegram';
-      toast('Venta guardada localmente','info');resetVenta();
+      toast('Venta guardada localmente','info');
+      abrirNotaVenta(nombreV,codigoV,precioV,qty,totalV,local,fechaV,stockV);
+      resetVenta();
     });
 }
 
@@ -1004,6 +1029,104 @@ function renderHistory(){
 function clearHistory(){
   if(!confirm('¿Limpiar todo el historial?'))return;
   hist=[];save();renderHistory();toast('Historial limpiado');
+}
+
+/* ============================================================
+   NOTA DE VENTA (imprimible, editable)
+============================================================ */
+var notaCampos=[];
+
+function abrirNotaVenta(nombre,codigo,precio,cantidad,total,local,fecha,stockNuevo){
+  notaCampos=[
+    {label:'Producto',value:nombre||''},
+    {label:'Código',value:codigo||''},
+    {label:'Precio',value:'$'+Number(precio).toFixed(2)},
+    {label:'Cantidad',value:String(cantidad)},
+    {label:'Total',value:'$'+Number(total).toFixed(2)},
+    {label:'Local',value:local||''},
+    {label:'Fecha',value:fecha||''},
+    {label:'Stock restante',value:String(stockNuevo)}
+  ];
+  renderNotaCampos();
+  document.getElementById('modalNota').classList.add('open');
+}
+
+function renderNotaCampos(){
+  var el=document.getElementById('notaCamposList');
+  el.innerHTML=notaCampos.map(function(c,i){
+    return '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">'+
+      '<input type="text" value="'+esc(c.label)+'" oninput="notaCampos['+i+'].label=this.value" placeholder="Etiqueta" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;">'+
+      '<input type="text" value="'+esc(c.value)+'" oninput="notaCampos['+i+'].value=this.value" placeholder="Valor" style="flex:1.4;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.8rem;">'+
+      '<button class="action-btn del" onclick="quitarCampoNota('+i+')">🗑</button>'+
+    '</div>';
+  }).join('');
+}
+
+function agregarCampoNota(){
+  notaCampos.push({label:'',value:''});
+  renderNotaCampos();
+}
+function quitarCampoNota(i){
+  notaCampos.splice(i,1);
+  renderNotaCampos();
+}
+function closeNotaModal(){
+  document.getElementById('modalNota').classList.remove('open');
+}
+
+function imprimirNota(){
+  var filas=notaCampos.filter(function(c){return c.label.trim()||c.value.trim();})
+    .map(function(c){
+      return '<div class="nota-row"><span class="nota-label">'+esc(c.label)+':</span><span class="nota-value">'+esc(c.value)+'</span></div>';
+    }).join('');
+
+  var html='<html><head><meta charset="UTF-8"><title>Nota de venta</title><style>'+
+    '@page{margin:6mm;}'+
+    'body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#0a0a0f;margin:0;padding:0;}'+
+    '.nota{width:80mm;padding:10px;box-sizing:border-box;margin:0 auto;}'+
+    '.nota-header{text-align:center;margin-bottom:8px;}'+
+    '.nota-header h1{font-size:1.5rem;font-weight:900;color:#0d1b3e;margin:0;line-height:1.05;letter-spacing:-.5px;}'+
+    '.nota-header .linea{border-top:2px solid #e53935;width:60%;margin:4px auto;}'+
+    '.nota-header .destacado{color:#e53935;font-size:2rem;font-weight:900;line-height:1;}'+
+    '.nota-icono{font-size:1.7rem;margin:6px 0 2px;}'+
+    '.nota-tel{background:#0d1b3e;color:#fff;font-weight:800;font-size:1.05rem;padding:6px 12px;border-radius:8px;display:inline-block;margin-top:4px;}'+
+    '.nota-body{border-top:1px dashed #999;border-bottom:1px dashed #999;padding:10px 0;margin:10px 0;}'+
+    '.nota-row{display:flex;justify-content:space-between;gap:10px;font-size:.82rem;padding:3px 0;}'+
+    '.nota-label{font-weight:700;color:#333;white-space:nowrap;}'+
+    '.nota-value{text-align:right;color:#000;word-break:break-word;}'+
+    '.nota-footer{margin-top:12px;}'+
+    '.garantia-box{border:1.5px solid #0d1b3e;border-radius:10px;display:flex;align-items:center;padding:8px;gap:8px;}'+
+    '.garantia-izq{display:flex;align-items:center;gap:6px;flex:1;}'+
+    '.garantia-num{color:#e53935;font-size:1.3rem;font-weight:900;}'+
+    '.garantia-txt{font-size:.66rem;line-height:1.15;font-weight:700;color:#0d1b3e;}'+
+    '.garantia-txt small{display:block;font-weight:400;color:#333;font-size:.58rem;}'+
+    '.firma{flex:1;text-align:center;border-left:1.5px solid #0d1b3e;padding-left:8px;}'+
+    '.firma .linea-firma{border-top:1px solid #000;margin:18px 4px 3px;}'+
+    '.firma span{font-size:.62rem;font-weight:700;color:#0d1b3e;}'+
+    '.disclaimer{font-size:.58rem;color:#333;margin-top:6px;line-height:1.3;}'+
+    '.disclaimer b{color:#e53935;}'+
+    '@media print{.nota{width:100%;}}'+
+    '</style></head><body><div class="nota">'+
+      '<div class="nota-header">'+
+        '<h1>REPARACIÓN</h1>'+
+        '<div class="linea"></div>'+
+        '<div class="destacado">DE CELULARES</div>'+
+        '<div class="nota-icono">🔧📱</div>'+
+        '<div class="nota-tel">📞 477 456 2700</div>'+
+      '</div>'+
+      '<div class="nota-body">'+(filas||'<p style="text-align:center;color:#999;font-size:.8rem;">Sin datos</p>')+'</div>'+
+      '<div class="nota-footer">'+
+        '<div class="garantia-box">'+
+          '<div class="garantia-izq">✅<div class="garantia-txt"><span class="garantia-num">6</span> MESES<br>GARANTÍA<small>* Aplican restricciones</small></div></div>'+
+          '<div class="firma"><div class="linea-firma"></div><span>Firma<br>acept. cliente</span></div>'+
+        '</div>'+
+        '<div class="disclaimer"><b>★</b> La garantía aplica solo en el producto que viene en buenas condiciones, no roto, no daños visibles, etc.</div>'+
+      '</div>'+
+    '</div></body></html>';
+
+  var w=window.open('','_blank','width=380,height=700');
+  w.document.write(html);w.document.close();
+  setTimeout(function(){w.print();},350);
 }
 
 /* ============================================================
