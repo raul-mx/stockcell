@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockCell — Raúl</title>
+<style>
+:root{--bg:#0a0a0f;--surface:#13131a;--card:#1a1a24;--border:#2a2a3a;
+  --accent:#00e5a0;--accent2:#ff5f57;--warn:#ffb830;--text:#f0f0f5;--muted:#6b6b80;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,229,160,.04) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,229,160,.04) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0;}
+
+header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,.95);
+  backdrop-filter:blur(16px);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:12px 20px;gap:10px;}
+.logo{font-size:1.2rem;font-weight:800;letter-spacing:-1px;white-space:nowrap;}
+.logo span{color:var(--accent);}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.local-sel{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:6px 10px;color:var(--text);font-size:.8rem;font-weight:700;outline:none;cursor:pointer;}
+.badge-alerta{background:var(--accent2);color:#fff;font-size:.7rem;font-weight:700;
+  padding:3px 10px;border-radius:999px;display:none;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+nav{display:flex;gap:3px;padding:14px 20px 0;border-bottom:1px solid var(--border);
+  position:relative;z-index:1;overflow-x:auto;}
+.tab{padding:9px 16px;border-radius:8px 8px 0 0;border:1px solid transparent;
+  border-bottom:none;cursor:pointer;font-size:.82rem;font-weight:600;
+  color:var(--muted);background:transparent;transition:all .2s;white-space:nowrap;}
+.tab.active{background:var(--card);border-color:var(--border);color:var(--accent);}
+
+main{padding:20px;position:relative;z-index:1;max-width:960px;margin:0 auto;}
+.panel{display:none;animation:fadeIn .3s;}
+.panel.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative;overflow:hidden;}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);}
+.stat-card.warn::after{background:var(--warn);}
+.stat-card.danger::after{background:var(--accent2);}
+.stat-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.stat-value{font-size:1.9rem;font-weight:800;margin-top:4px;line-height:1;}
+.stat-card.warn .stat-value{color:var(--warn);}
+.stat-card.danger .stat-value{color:var(--accent2);}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.search-box{flex:1;min-width:150px;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:9px 13px;color:var(--text);font-size:.87rem;outline:none;transition:border-color .2s;}
+.search-box:focus{border-color:var(--accent);}
+.search-box::placeholder{color:var(--muted);}
+select.search-box{flex:0 0 auto;cursor:pointer;}
+
+.btn{padding:9px 15px;border-radius:10px;border:none;font-weight:700;font-size:.8rem;
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#0a0a0f;}
+.btn-primary:hover{background:#00ffb3;}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border);}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:rgba(255,95,87,.15);color:var(--accent2);border:1px solid rgba(255,95,87,.3);}
+.btn-warn{background:rgba(255,184,48,.1);color:var(--warn);border:1px solid rgba(255,184,48,.3);}
+.btn-tg{background:rgba(41,182,246,.15);color:#29b6f6;border:1px solid rgba(41,182,246,.3);}
+.btn-print{background:rgba(0,229,160,.1);color:var(--accent);border:1px solid rgba(0,229,160,.3);}
+
+.table-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--card);}
+th{text-align:left;padding:11px 14px;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);}
+td{padding:11px 14px;font-size:.85rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:rgba(255,255,255,.03);}
+tbody tr.low-stock{background:rgba(255,184,48,.04);}
+tbody tr.out-stock{background:rgba(255,95,87,.04);}
+
+.stock-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;
+  border-radius:999px;font-family:monospace;font-size:.78rem;}
+.stock-ok{background:rgba(0,229,160,.12);color:var(--accent);border:1px solid rgba(0,229,160,.25);}
+.stock-low{background:rgba(255,184,48,.12);color:var(--warn);border:1px solid rgba(255,184,48,.25);}
+.stock-out{background:rgba(255,95,87,.12);color:var(--accent2);border:1px solid rgba(255,95,87,.25);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;}
+
+.prod-foto{width:64px;height:64px;border-radius:10px;object-fit:cover;
+  border:1px solid var(--border);cursor:zoom-in;transition:transform .15s;}
+.prod-foto:hover{transform:scale(1.08);}
+.prod-foto-placeholder{width:64px;height:64px;border-radius:10px;background:var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:1.6rem;}
+
+.action-btn{background:none;border:none;cursor:pointer;padding:4px 7px;border-radius:7px;
+  font-size:.82rem;color:var(--muted);transition:background .15s;}
+.action-btn:hover{background:var(--border);color:var(--text);}
+.action-btn.del:hover{background:rgba(255,95,87,.15);color:var(--accent2);}
+.action-btn.venta{color:var(--accent);font-size:2.46rem;padding:2px 6px;}
+.action-btn.venta:hover{background:rgba(0,229,160,.15);}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
+  z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  width:min(500px,96vw);max-height:93vh;overflow-y:auto;animation:popIn .22s;}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;}
+.modal-title{font-size:1rem;font-weight:700;}
+.modal-body{padding:18px 22px;}
+.modal-footer{padding:0 22px 18px;display:flex;gap:10px;justify-content:flex-end;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group{margin-bottom:13px;display:flex;flex-direction:column;gap:5px;}
+.form-group label{font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;}
+.form-group input,.form-group select,.form-group textarea{background:var(--card);border:1px solid var(--border);
+  border-radius:9px;padding:9px 13px;color:var(--text);font-size:.88rem;outline:none;
+  transition:border-color .2s;width:100%;font-family:inherit;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
+
+/* Foto preview */
+.foto-preview{width:100%;height:140px;border-radius:10px;object-fit:cover;
+  border:1px solid var(--border);display:none;margin-top:8px;}
+.foto-placeholder{width:100%;height:100px;border:2px dashed var(--border);border-radius:10px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;cursor:pointer;transition:border-color .2s;color:var(--muted);font-size:.83rem;margin-top:6px;}
+.foto-placeholder:hover{border-color:var(--accent);color:var(--accent);}
+
+/* Scanner / Cámara */
+.scanner-box{background:var(--card);border:2px dashed var(--border);border-radius:14px;padding:22px;text-align:center;}
+.manual-wrap{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.manual-wrap input{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:9px 13px;color:var(--text);font-size:.93rem;outline:none;width:210px;}
+.manual-wrap input:focus{border-color:var(--accent);}
+.cam-btns{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.cam-wrap{display:none;position:relative;width:100%;max-width:420px;margin:12px auto 0;border-radius:14px;overflow:hidden;background:#000;}
+.cam-wrap video{width:100%;display:block;}
+.cam-overlay{position:absolute;inset:0;border:2px solid rgba(0,229,160,.4);border-radius:14px;pointer-events:none;}
+.cam-corner{position:absolute;width:22px;height:22px;border-color:var(--accent);border-style:solid;}
+.cam-corner.tl{top:8px;left:8px;border-width:3px 0 0 3px;}
+.cam-corner.tr{top:8px;right:8px;border-width:3px 3px 0 0;}
+.cam-corner.bl{bottom:8px;left:8px;border-width:0 0 3px 3px;}
+.cam-corner.br{bottom:8px;right:8px;border-width:0 3px 3px 0;}
+.cam-line{position:absolute;left:10%;right:10%;top:50%;height:2px;
+  background:var(--accent);box-shadow:0 0 8px var(--accent);animation:scanLine 1.8s ease-in-out infinite;}
+@keyframes scanLine{0%,100%{top:25%}50%{top:75%}}
+.cam-status{font-size:.8rem;color:var(--accent);margin-top:8px;min-height:20px;text-align:center;}
+
+.scan-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:16px;}
+.scan-prod-header{display:flex;gap:12px;align-items:center;margin-bottom:12px;}
+.scan-prod-foto{width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border);cursor:zoom-in;}
+.scan-prod-foto-ph{width:56px;height:56px;border-radius:10px;background:var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:1.6rem;}
+.scan-card-name{font-weight:700;font-size:1rem;}
+.scan-card-meta{font-size:.82rem;color:var(--muted);margin-top:2px;}
+.scan-venta-form{border-top:1px solid var(--border);padding-top:14px;margin-top:4px;}
+.not-found-card{background:rgba(255,95,87,.07);border:1px solid rgba(255,95,87,.25);
+  border-radius:14px;padding:20px;text-align:center;margin-top:16px;}
+
+/* Historial */
+.history-list{display:flex;flex-direction:column;gap:10px;}
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.hi-left{display:flex;gap:10px;align-items:center;}
+.hi-foto{width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;}
+.hi-foto-ph{width:40px;height:40px;border-radius:8px;background:var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.hi-name{font-weight:600;font-size:.9rem;}
+.hi-meta{font-size:.75rem;color:var(--muted);margin-top:2px;}
+.hi-badge{font-size:.73rem;font-weight:700;padding:3px 9px;border-radius:999px;font-family:monospace;white-space:nowrap;}
+.hi-in{background:rgba(0,229,160,.12);color:var(--accent);}
+.hi-out{background:rgba(255,95,87,.12);color:var(--accent2);}
+.hi-venta{background:rgba(255,184,48,.12);color:var(--warn);}
+
+/* Import */
+.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:24px 20px;
+  text-align:center;cursor:pointer;transition:all .2s;margin-bottom:14px;}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--warn);background:rgba(255,184,48,.05);}
+.imp-summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.imp-chip{padding:3px 11px;border-radius:999px;font-size:.77rem;font-weight:700;}
+.chip-ok{background:rgba(0,229,160,.12);color:var(--accent);}
+.chip-dup{background:rgba(255,184,48,.12);color:var(--warn);}
+.chip-err{background:rgba(255,95,87,.12);color:var(--accent2);}
+.imp-table-wrap{overflow:auto;max-height:240px;border-radius:10px;border:1px solid var(--border);}
+.imp-table-wrap table{width:100%;border-collapse:collapse;font-size:.78rem;}
+.imp-table-wrap th{background:var(--card);padding:7px 11px;text-align:left;color:var(--muted);
+  font-size:.67rem;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;top:0;}
+.imp-table-wrap td{padding:7px 11px;border-bottom:1px solid var(--border);}
+.row-ok td:first-child{border-left:3px solid var(--accent);}
+.row-dup td:first-child{border-left:3px solid var(--warn);}
+
+/* Barcode */
+.barcode-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:14px;}
+
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty-state .emoji{font-size:2.6rem;margin-bottom:10px;}
+
+.sync-indicator{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);padding:4px 10px;
+  background:var(--card);border:1px solid var(--border);border-radius:999px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--warn);}
+.sync-dot.ok{background:var(--accent);}
+.sync-dot.err{background:var(--accent2);}
+
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--accent);color:#0a0a0f;padding:10px 22px;border-radius:999px;
+  font-weight:700;font-size:.85rem;z-index:9998;transition:transform .3s,opacity .3s;
+  opacity:0;pointer-events:none;max-width:90vw;text-align:center;}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+.toast.err{background:var(--accent2);color:#fff;}
+.toast.info{background:#29b6f6;color:#000;}
+
+.loading{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:560px){
+  .form-row{grid-template-columns:1fr;}
+  main{padding:12px;}
+  nav{padding:10px 12px 0;}
+  .tab{padding:8px 11px;font-size:.76rem;}
+  header{padding:10px 14px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Stock<span>Cell</span></div>
+  <div class="header-right">
+    <select class="local-sel" id="localSel">
+      <option value="COECILLO">🏪 COECILLO</option>
+      <option value="10K HIDALGO-VALTIERRA">🏪 10K HIDALGO-VALTIERRA</option>
+    </select>
+    <div class="sync-indicator" id="syncInd">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncTxt">Sin sincronizar</span>
+    </div>
+    <span class="badge-alerta" id="badgeAlerta">⚠ Stock bajo</span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" onclick="showTab('inventario',this)">📦 Inventario</button>
+  <button class="tab" onclick="showTab('vender',this)">💳 Vender</button>
+  <button class="tab" onclick="showTab('historial',this)">📋 Historial</button>
+  <button class="tab" onclick="showTab('codigos',this)">🖨️ Códigos</button>
+</nav>
+
+<main>
+
+<!-- ===== INVENTARIO ===== -->
+<div class="panel active" id="panel-inventario">
+  <div class="stats-grid" id="statsGrid"></div>
+  <div id="buscadorPanel" style="margin-bottom:18px;">
+    <div id="buscadorInicio" style="display:flex;gap:12px;margin-bottom:12px;">
+      <button onclick="abrirBuscador('camara')" style="flex:1;padding:22px 10px;border-radius:16px;background:var(--card);border:2px solid var(--accent);color:var(--accent);font-size:1rem;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <span style="font-size:2rem;">📷</span>
+        <span>Escanear código</span>
+        <span style="font-size:.75rem;color:var(--muted);font-weight:400">Usa la cámara</span>
+      </button>
+      <button onclick="abrirBuscador('texto')" style="flex:1;padding:22px 10px;border-radius:16px;background:var(--card);border:2px solid var(--border);color:var(--text);font-size:1rem;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <span style="font-size:2rem;">🔍</span>
+        <span>Buscar texto</span>
+        <span style="font-size:.75rem;color:var(--muted);font-weight:400">Nombre o código</span>
+      </button>
+    </div>
+    <div id="buscadorCamara" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span style="font-weight:700;color:var(--accent)">📷 Escanear código de barras</span>
+        <button onclick="cerrarBuscador()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+      <div class="cam-btns">
+        <button class="btn btn-primary" id="btnCamInv" onclick="iniciarCamara('inv')">📷 Activar cámara</button>
+        <button class="btn btn-secondary" id="btnCamInvStop" onclick="detenerCamara('inv')" style="display:none">⏹ Detener</button>
+      </div>
+      <div class="cam-wrap" id="camWrapInv">
+        <video id="camVideoInv" autoplay playsinline muted></video>
+        <div class="cam-overlay">
+          <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+          <div class="cam-line"></div>
+        </div>
+      </div>
+      <div class="cam-status" id="camStatusInv"></div>
+      <div style="margin-top:10px;">
+        <input class="search-box" type="text" id="searchInputCam" placeholder="O escribe el código..." oninput="renderTable(this.value)" style="width:100%;">
+      </div>
+    </div>
+    <div id="buscadorTexto" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span style="font-weight:700;">🔍 Buscar producto</span>
+        <button onclick="cerrarBuscador()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem;">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input class="search-box" type="text" id="searchInput" placeholder="Nombre, código, categoría..." oninput="renderTable()" style="flex:1;min-width:200px;">
+        <select class="search-box" id="filterCat" onchange="renderTable()" style="flex:0 0 auto;">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddModal()">＋ Agregar</button>
+    <button class="btn btn-warn" onclick="openImportModal()">📂 Importar</button>
+    <button class="btn btn-print" onclick="exportarCSV()">⬇ CSV</button>
+    <button class="btn btn-tg" onclick="sincronizarSheets()">☁️ Sync Sheets</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Foto</th><th>Producto</th><th>Código</th><th>Categoría</th>
+        <th>Precio</th><th>Stock</th><th></th>
+      </tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== VENDER ===== -->
+<div class="panel" id="panel-vender">
+  <h2 style="margin-bottom:16px;font-size:1.1rem;">Registrar venta</h2>
+  <div class="scanner-box">
+    <div style="font-size:2.4rem;margin-bottom:6px;">📷</div>
+    <p style="color:var(--muted);font-size:.87rem;">Escanea o ingresa el código del producto</p>
+    <div class="cam-btns">
+      <button class="btn btn-primary" id="btnCamVenta" onclick="iniciarCamara('venta')">📷 Usar cámara</button>
+      <button class="btn btn-secondary" id="btnCamVentaStop" onclick="detenerCamara('venta')" style="display:none">⏹ Detener</button>
+    </div>
+    <div class="cam-wrap" id="camWrapVenta">
+      <video id="camVideoVenta" autoplay playsinline muted></video>
+      <div class="cam-overlay">
+        <div class="cam-corner tl"></div><div class="cam-corner tr"></div>
+        <div class="cam-corner bl"></div><div class="cam-corner br"></div>
+        <div class="cam-line"></div>
+      </div>
+    </div>
+    <div class="cam-status" id="camStatusVenta"></div>
+    <div class="manual-wrap">
+      <input type="text" id="ventaCodigo" placeholder="O escribe el código manualmente" onkeydown="if(event.key==='Enter')buscarParaVenta()">
+      <button class="btn btn-secondary" onclick="buscarParaVenta()">🔍 Buscar</button>
+    </div>
+  </div>
+  <div id="ventaCard" style="display:none">
+    <div class="scan-card">
+      <div class="scan-prod-header">
+        <div id="ventaProdFoto" class="scan-prod-foto-ph">📦</div>
+        <div>
+          <div class="scan-card-name" id="ventaNombre"></div>
+          <div class="scan-card-meta" id="ventaMeta"></div>
+        </div>
+      </div>
+      <div class="scan-venta-form">
+        <div class="form-row" style="margin-bottom:12px;">
+          <div class="form-group" style="margin:0">
+            <label>Cantidad</label>
+            <input type="number" id="ventaCantidad" value="1" min="1">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Local</label>
+            <select id="ventaLocal">
+              <option>COECILLO</option>
+              <option>10K HIDALGO-VALTIERRA</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Foto del producto vendido (opcional)</label>
+          <div class="foto-placeholder" id="ventaFotoPlaceholder" onclick="document.getElementById('ventaFotoInput').click()">
+            <span style="font-size:1.5rem">📸</span>
+            <span>Tomar o subir foto</span>
+          </div>
+          <input type="file" id="ventaFotoInput" accept="image/*" capture="environment" style="display:none" onchange="prevVentaFoto(event)">
+          <img id="ventaFotoPreview" class="foto-preview">
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:13px" onclick="registrarVenta()">
+          💳 Confirmar venta y notificar Telegram
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="ventaNotFound" style="display:none">
+    <div class="not-found-card">
+      <div style="font-size:1.6rem;margin-bottom:6px">❓</div>
+      <p style="color:var(--accent2);font-weight:700;margin-bottom:4px">Producto no encontrado</p>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px">
+        Código: <span id="ventaCodeNF" style="font-family:monospace;color:var(--text)"></span></p>
+      <button class="btn btn-primary" onclick="openAddModalWithCode()">＋ Agregar este producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HISTORIAL ===== -->
+<div class="panel" id="panel-historial">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+    <h2 style="font-size:1.1rem;">Historial de movimientos</h2>
+    <div style="display:flex;gap:8px;">
+      <select class="search-box" style="flex:0 0 auto;font-size:.8rem;padding:7px 10px" id="histFiltro" onchange="renderHistory()">
+        <option value="">Todo</option>
+        <option value="venta">Solo ventas</option>
+        <option value="entrada">Solo entradas</option>
+        <option value="salida">Solo salidas</option>
+      </select>
+      <button class="btn btn-danger" onclick="clearHistory()">🗑 Limpiar</button>
+    </div>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<!-- ===== CÓDIGOS DE BARRAS ===== -->
+<div class="panel" id="panel-codigos">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+    <h2 style="font-size:1.1rem;">Imprimir códigos de barras</h2>
+    <button class="btn btn-primary" onclick="imprimirCodigos()">🖨️ Imprimir</button>
+  </div>
+  <p style="color:var(--muted);font-size:.83rem;margin-bottom:16px;">Selecciona los productos y luego toca Imprimir.</p>
+  <div class="toolbar" style="margin-bottom:14px;">
+    <button class="btn btn-secondary" onclick="selAll(true)">✓ Seleccionar todos</button>
+    <button class="btn btn-secondary" onclick="selAll(false)">✗ Deseleccionar</button>
+  </div>
+  <div id="barcodeList"></div>
+</div>
+
+</main>
+
+<!-- MODAL AGREGAR/EDITAR -->
+<div class="modal-overlay" id="modalAdd">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalAddTitle">Agregar producto</span>
+      <button class="btn btn-secondary" onclick="closeAddModal()" style="padding:5px 11px">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nombre *</label>
+        <input type="text" id="fNombre" placeholder="Ej: Funda iPhone 15 Pro">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Código de barras</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" id="fCodigo" placeholder="EAN / SKU" style="flex:1;">
+            <button type="button" onclick="iniciarCamaraModal()" style="background:var(--accent);border:none;border-radius:9px;padding:0 14px;cursor:pointer;font-size:1.2rem;" title="Escanear con cámara">📷</button>
+          </div>
+          <div id="camWrapModal" style="display:none;margin-top:8px;border-radius:10px;overflow:hidden;position:relative;background:#000;max-height:200px;">
+            <video id="camVideoModal" autoplay playsinline muted style="width:100%;display:block;"></video>
+            <div style="position:absolute;inset:0;border:2px solid var(--accent);border-radius:10px;pointer-events:none;">
+              <div style="position:absolute;top:50%;left:10%;right:10%;height:2px;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:scanLine 1.8s ease-in-out infinite;"></div>
+            </div>
+            <button type="button" onclick="detenerCamara('modal')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.8);border:none;color:#fff;border-radius:50%;width:28px;height:28px;cursor:pointer;">✕</button>
+          </div>
+          <div id="camStatusModal" style="font-size:.78rem;color:var(--accent);margin-top:4px;min-height:16px;"></div>
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <input type="text" id="fCategoria" placeholder="Ej: Fundas">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Precio venta ($)</label>
+          <input type="number" id="fPrecio" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>Precio costo ($)</label>
+          <input type="text" inputmode="text" id="fCosto" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Stock actual *</label>
+          <input type="number" id="fStock" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Stock mínimo</label>
+          <input type="number" id="fMin" min="0" placeholder="5">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Foto del producto (URL de Google Drive o imgbb)</label>
+        <input type="text" id="fFotoUrl" placeholder="https://drive.google.com/... o https://i.ibb.co/...">
+        <div class="foto-placeholder" id="fFotoPlaceholder" onclick="document.getElementById('fFotoFile').click()" style="margin-top:8px;">
+          <span style="font-size:1.3rem">📷</span>
+          <span>O toca para subir foto desde tu dispositivo</span>
+        </div>
+        <input type="file" id="fFotoFile" accept="image/*" style="display:none" onchange="prevAddFoto(event)">
+        <img id="fFotoPreview" class="foto-preview">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct()" id="btnSave">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR -->
+<div class="modal-overlay" id="modalImport">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Importar productos (CSV)</span>
+      <button class="btn btn-secondary" onclick="closeImportModal()" style="padding:5px 11px">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.2);border-radius:10px;padding:12px 14px;font-size:.8rem;line-height:1.7;color:var(--muted);margin-bottom:14px;">
+        <strong style="color:var(--accent)">Formato:</strong> CSV exportado desde Excel<br>
+        Columnas: <span style="font-family:monospace;color:var(--text)">nombre, codigo, categoria, precio, costo, stock, min</span>
+      </div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+           ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)">
+        <div style="font-size:2rem">📂</div>
+        <p style="color:var(--muted);font-size:.85rem;margin-top:6px">Toca para seleccionar archivo CSV</p>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.txt" style="display:none" onchange="fileSelected(event)">
+      <div id="importPreview"></div>
+    </div>
+    <div class="modal-footer" id="importFooter" style="display:none">
+      <button class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarImport()">✅ Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- VISOR DE FOTO -->
+<div id="fotoViewer" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;" onclick="cerrarFoto()">
+  <button onclick="cerrarFoto()" style="position:fixed;top:12px;right:12px;z-index:100000;background:rgba(255,255,255,.2);border:none;color:#fff;font-size:1.4rem;width:44px;height:44px;border-radius:50%;cursor:pointer;font-weight:bold;">✕</button>
+  <div id="fotoViewerBg" style="position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px) brightness(.3);transform:scale(1.1);"></div>
+  <div style="position:relative;z-index:1;width:100%;height:100%;display:flex;align-items:center;justify-content:center;" onclick="event.stopPropagation()">
+    <img id="fotoViewerImg" src="" alt="" style="width:100vw;height:100vh;object-fit:contain;display:block;" onclick="cerrarFoto()">
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+============================================================ */
+var WEBAPP_URL='https://script.google.com/macros/s/AKfycbwcoQtJidPQFhzHCCpgU1-r1JRJxF2p8Xf39ClPJnhPShyDUtciTYe9p8_6k51HndFTOQ/exec';
+var TG_CHAT_ID='5516067616';
+var IMGBB_API_KEY='2871163e042e517748370770af4240a5';
+
+/* ============================================================
+   DATOS
+============================================================ */
+var inv=[],hist=[],editId=null,lastCode='',pending=[],ventaProdId=null,ventaFotoB64='',ventaFotoSubiendo=false;
+
+try{inv=JSON.parse(localStorage.getItem('sc_inv')||'[]');}catch(e){inv=[];}
+try{hist=JSON.parse(localStorage.getItem('sc_his')||'[]');}catch(e){hist=[];}
+
+function save(){
+  try{localStorage.setItem('sc_inv',JSON.stringify(inv));}catch(e){}
+  try{localStorage.setItem('sc_his',JSON.stringify(hist));}catch(e){}
+}
+function nid(){var m=0;for(var i=0;i<inv.length;i++)if(inv[i].id>m)m=inv[i].id;return m+1;}
+function byId(id){for(var i=0;i<inv.length;i++)if(inv[i].id===id)return inv[i];return null;}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function localActual(){return document.getElementById('localSel').value;}
+
+/* ============================================================
+   SYNC
+============================================================ */
+function setSyncStatus(e){
+  var d=document.getElementById('syncDot'),t=document.getElementById('syncTxt');
+  d.className='sync-dot'+(e==='ok'?' ok':e==='err'?' err':'');
+  t.textContent=e==='ok'?'Sincronizado':e==='err'?'Error sync':e==='loading'?'Sincronizando...':'Sin sincronizar';
+}
+
+function cargarDesdeSheets(data){
+  if(!data.productos||!data.productos.length)return;
+  inv=[];
+  data.productos.forEach(function(p,i){
+    if(!p.nombre)return;
+    inv.push({id:i+1,nombre:String(p.nombre||''),codigo:String(p.codigo||''),
+      categoria:String(p.categoria||''),precio:Number(p.precio)||0,costo:Number(p.costo)||0,
+      stock:Number(p.stock)||0,min:Number(p.min)||5,foto_url:String(p.foto_url||'')});
+  });
+  save();renderStats();renderTable();
+}
+
+function sincronizarSheets(){
+  setSyncStatus('loading');
+  toast('Sincronizando...','info');
+  fetch(WEBAPP_URL+'?accion=get_inventario')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.ok&&data.productos&&data.productos.length){
+        cargarDesdeSheets(data);
+        setSyncStatus('ok');
+        toast('✓ Sincronizado — '+inv.length+' productos');
+      } else {
+        setSyncStatus('err');
+        toast('Sheets vacío o sin conexión','err');
+      }
+    }).catch(function(){setSyncStatus('err');toast('Error al conectar con Sheets','err');});
+}
+
+function autoSync(){
+  setSyncStatus('loading');
+  fetch(WEBAPP_URL+'?accion=get_inventario')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.ok&&data.productos&&data.productos.length){
+        cargarDesdeSheets(data);setSyncStatus('ok');
+      } else {
+        // Sheets vacío o sin datos — conservar datos locales
+        setSyncStatus('ok');
+        renderStats();renderTable();
+      }
+    }).catch(function(){
+      // Sin conexión — conservar datos locales
+      setSyncStatus('err');
+      renderStats();renderTable();
+    });
+}
+
+function enviarASheets(data){
+  return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data),mode:'no-cors'}).then(function(){return{ok:true};});
+}
+
+/* ============================================================
+   TABS
+============================================================ */
+function showTab(name,btn){
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.getElementById('panel-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='inventario'){renderStats();renderTable();}
+  if(name==='historial')renderHistory();
+  if(name==='vender')resetVenta();
+  if(name==='codigos')renderBarcodes();
+  if(name!=='vender')detenerCamara('venta');
+  if(name!=='inventario')detenerCamara('inv');
+}
+
+/* ============================================================
+   STATS + TABLA
+============================================================ */
+function renderStats(){
+  var total=inv.length,low=0,out=0,val=0;
+  for(var i=0;i<inv.length;i++){
+    var p=inv[i];
+    if(p.stock===0)out++;else if(p.stock<=p.min)low++;
+    val+=p.precio*p.stock;
+  }
+  document.getElementById('statsGrid').innerHTML=
+    '<div class="stat-card"><div class="stat-label">Productos</div><div class="stat-value">'+total+'</div></div>'+
+    '<div class="stat-card warn"><div class="stat-label">Stock bajo</div><div class="stat-value">'+low+'</div></div>'+
+    '<div class="stat-card danger"><div class="stat-label">Agotado</div><div class="stat-value">'+out+'</div></div>'+
+    '<div class="stat-card"><div class="stat-label">Valor inventario</div><div class="stat-value" style="font-size:1.3rem">$'+val.toFixed(0)+'</div></div>';
+  document.getElementById('badgeAlerta').style.display=(low+out)>0?'inline-block':'none';
+}
+
+function abrirBuscador(tipo){
+  document.getElementById('buscadorCamara').style.display='none';
+  document.getElementById('buscadorTexto').style.display='none';
+  detenerCamara('inv');
+  if(tipo==='camara'){
+    document.getElementById('buscadorCamara').style.display='block';
+    setTimeout(function(){iniciarCamara('inv');},200);
+  } else {
+    document.getElementById('buscadorTexto').style.display='block';
+    setTimeout(function(){var el=document.getElementById('searchInput');if(el)el.focus();},100);
+  }
+}
+
+function cerrarBuscador(){
+  detenerCamara('inv');
+  document.getElementById('buscadorCamara').style.display='none';
+  document.getElementById('buscadorTexto').style.display='none';
+  renderTable();
+}
+
+function renderTable(qOverride){
+  renderStats();
+  var q='';
+  var camInput=document.getElementById('searchInputCam');
+  var txtInput=document.getElementById('searchInput');
+  if(qOverride!==undefined)q=String(qOverride).toLowerCase();
+  else if(camInput&&camInput.value)q=camInput.value.toLowerCase();
+  else if(txtInput)q=txtInput.value.toLowerCase();
+
+  var cats={};
+  for(var i=0;i<inv.length;i++)if(inv[i].categoria)cats[inv[i].categoria]=1;
+  var ck=Object.keys(cats),sel=document.getElementById('filterCat'),prev=sel.value;
+  sel.innerHTML='<option value="">Todas las categorías</option>';
+  for(var i=0;i<ck.length;i++){var o=document.createElement('option');o.value=ck[i];o.textContent=ck[i];if(ck[i]===prev)o.selected=true;sel.appendChild(o);}
+
+  var cat=sel.value;
+  var fil=inv.filter(function(p){
+    return(p.nombre.toLowerCase().indexOf(q)>=0||(p.codigo||'').indexOf(q)>=0)&&(cat?p.categoria===cat:true);
+  });
+  var tb=document.getElementById('tableBody');
+  if(!fil.length){tb.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="emoji">🔍</div><p>Sin resultados</p></div></td></tr>';return;}
+  var html='';
+  for(var i=0;i<fil.length;i++){
+    var p=fil[i];
+    var rc=p.stock===0?'out-stock':p.stock<=p.min?'low-stock':'';
+    var pill=p.stock===0?'<span class="stock-pill stock-out"><span class="dot"></span>Agotado</span>':
+             p.stock<=p.min?'<span class="stock-pill stock-low"><span class="dot"></span>'+p.stock+'</span>':
+             '<span class="stock-pill stock-ok"><span class="dot"></span>'+p.stock+'</span>';
+    var fotoEl=p.foto_url?'<img class="prod-foto" src="'+esc(p.foto_url)+'" onerror="this.style.display=\'none\'" onclick="event.preventDefault();event.stopPropagation();verFoto(\''+esc(p.foto_url)+'\');return false;">':
+               '<div class="prod-foto-placeholder">📦</div>';
+    html+='<tr class="'+rc+'">'+
+      '<td>'+fotoEl+'</td>'+
+      '<td><strong>'+esc(p.nombre)+'</strong></td>'+
+      '<td><span style="font-family:monospace;font-size:.77rem;color:var(--muted)">'+(p.codigo||'—')+'</span></td>'+
+      '<td><span style="font-size:.78rem;background:var(--border);padding:2px 8px;border-radius:999px">'+(p.categoria||'—')+'</span></td>'+
+      '<td style="font-family:monospace">$'+Number(p.precio).toFixed(2)+'</td>'+
+      '<td>'+pill+'</td>'+
+      '<td>'+
+        '<button class="action-btn venta" onclick="irAVender('+p.id+')">💳</button>'+
+        '<button class="action-btn" onclick="openEditModal('+p.id+')">✏️</button>'+
+        '<button class="action-btn" onclick="qMove('+p.id+',1)">＋</button>'+
+        '<button class="action-btn" onclick="qMove('+p.id+',-1)">－</button>'+
+        '<button class="action-btn del" onclick="delProd('+p.id+')">🗑</button>'+
+      '</td></tr>';
+  }
+  tb.innerHTML=html;
+}
+
+function qMove(id,d){
+  var p=byId(id);if(!p)return;
+  if(p.stock+d<0){toast('⚠ Stock insuficiente','err');return;}
+  addHist(p,d>0?'entrada':'salida',Math.abs(d),'','');
+  p.stock+=d;save();renderTable();
+  toast((d>0?'+':'')+d+' '+p.nombre);
+}
+function delProd(id){
+  if(!confirm('¿Eliminar este producto?'))return;
+  inv=inv.filter(function(x){return x.id!==id;});save();renderTable();toast('Producto eliminado');
+}
+
+/* ============================================================
+   MODAL AGREGAR/EDITAR
+============================================================ */
+function openAddModal(){
+  editId=null;
+  document.getElementById('modalAddTitle').textContent='Agregar producto';
+  ['fNombre','fCodigo','fCategoria','fPrecio','fCosto','fStock','fFotoUrl'].forEach(function(x){document.getElementById(x).value='';});
+  document.getElementById('fMin').value='5';
+  document.getElementById('fFotoPreview').style.display='none';
+  document.getElementById('fFotoPlaceholder').style.display='flex';
+  document.getElementById('modalAdd').classList.add('open');
+}
+function openAddModalWithCode(){
+  openAddModal();
+  document.getElementById('fCodigo').value=lastCode;
+}
+function openEditModal(id){
+  var p=byId(id);if(!p)return;
+  editId=id;
+  document.getElementById('modalAddTitle').textContent='Editar producto';
+  document.getElementById('fNombre').value=p.nombre;
+  document.getElementById('fCodigo').value=p.codigo||'';
+  document.getElementById('fCategoria').value=p.categoria||'';
+  document.getElementById('fPrecio').value=p.precio;
+  document.getElementById('fCosto').value=p.costo||'';
+  document.getElementById('fStock').value=p.stock;
+  document.getElementById('fMin').value=p.min;
+  document.getElementById('fFotoUrl').value=p.foto_url||'';
+  if(p.foto_url){
+    document.getElementById('fFotoPreview').src=p.foto_url;
+    document.getElementById('fFotoPreview').style.display='block';
+    document.getElementById('fFotoPlaceholder').style.display='none';
+  } else {
+    document.getElementById('fFotoPreview').style.display='none';
+    document.getElementById('fFotoPlaceholder').style.display='flex';
+  }
+  document.getElementById('modalAdd').classList.add('open');
+}
+function closeAddModal(){
+  document.getElementById('modalAdd').classList.remove('open');
+  detenerCamara('modal');
+}
+
+/* Sube la foto seleccionada directamente a imgbb y guarda el link final en fFotoUrl */
+function prevAddFoto(e){
+  var file=e.target.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    document.getElementById('fFotoPreview').src=ev.target.result;
+    document.getElementById('fFotoPreview').style.display='block';
+    document.getElementById('fFotoPlaceholder').style.display='none';
+  };
+  r.readAsDataURL(file);
+
+  document.getElementById('fFotoUrl').value='Subiendo imagen...';
+  document.getElementById('fFotoUrl').disabled=true;
+
+  var fd=new FormData();
+  fd.append('image',file);
+  fetch('https://api.imgbb.com/1/upload?key='+IMGBB_API_KEY,{method:'POST',body:fd})
+    .then(function(res){return res.json();})
+    .then(function(data){
+      document.getElementById('fFotoUrl').disabled=false;
+      if(data&&data.success&&data.data&&data.data.url){
+        document.getElementById('fFotoUrl').value=data.data.url;
+        toast('✓ Foto subida correctamente');
+      }else{
+        document.getElementById('fFotoUrl').value='';
+        toast('⚠ Error al subir la foto, intenta de nuevo','err');
+      }
+    })
+    .catch(function(err){
+      document.getElementById('fFotoUrl').disabled=false;
+      document.getElementById('fFotoUrl').value='';
+      toast('⚠ Error de conexión al subir la foto','err');
+    });
+}
+
+function convertirUrlFoto(url){
+  if(!url)return'';
+  var m=url.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/);
+  if(m)return'https://drive.google.com/uc?export=view&id='+m[1];
+  return url;
+}
+
+function saveProduct(){
+  var nombre=document.getElementById('fNombre').value.trim();
+  if(!nombre){toast('⚠ El nombre es obligatorio','err');return;}
+  var fotoRaw=document.getElementById('fFotoUrl').value.trim();
+  var obj={
+    nombre:nombre,
+    codigo:document.getElementById('fCodigo').value.trim(),
+    categoria:document.getElementById('fCategoria').value.trim(),
+    precio:parseFloat(document.getElementById('fPrecio').value)||0,
+    costo:parseFloat(document.getElementById('fCosto').value)||0,
+    stock:parseInt(document.getElementById('fStock').value)||0,
+    min:parseInt(document.getElementById('fMin').value)||5,
+    foto_url:convertirUrlFoto(fotoRaw)
+  };
+
+  var btn=document.getElementById('btnSave');
+  btn.disabled=true;btn.innerHTML='<span class="loading"></span> Guardando...';
+
+  if(editId){
+    var p=byId(editId);Object.assign(p,obj);
+    save();renderTable();
+    enviarASheets({accion:'update_producto',codigo:obj.codigo,nombre:obj.nombre,
+      categoria:obj.categoria,precio:obj.precio,costo:obj.costo,stock:obj.stock,
+      min:obj.min,foto_url:obj.foto_url&&obj.foto_url.indexOf('http')===0?obj.foto_url:''});
+    closeAddModal();
+    toast('Producto actualizado ✓');
+    btn.disabled=false;btn.innerHTML='💾 Guardar';
+  } else {
+    obj.id=nid();inv.push(obj);save();renderTable();
+    enviarASheets({accion:'alta_producto',nombre:obj.nombre,codigo:obj.codigo,
+      categoria:obj.categoria,precio:obj.precio,costo:obj.costo,stock:obj.stock,
+      min:obj.min,foto_url:obj.foto_url&&obj.foto_url.indexOf('http')===0?obj.foto_url:''
+    }).then(function(){
+      btn.disabled=false;btn.innerHTML='💾 Guardar';
+      closeAddModal();toast('Producto guardado ✓');
+    }).catch(function(){
+      btn.disabled=false;btn.innerHTML='💾 Guardar';
+      closeAddModal();toast('Guardado localmente','info');
+    });
+  }
+}
+
+/* ============================================================
+   VENDER
+============================================================ */
+function resetVenta(){
+  document.getElementById('ventaCodigo').value='';
+  document.getElementById('ventaCard').style.display='none';
+  document.getElementById('ventaNotFound').style.display='none';
+  document.getElementById('ventaFotoPreview').style.display='none';
+  document.getElementById('ventaFotoPlaceholder').style.display='flex';
+  document.getElementById('ventaCantidad').value='1';
+  document.getElementById('ventaLocal').value=localActual();
+  ventaProdId=null;ventaFotoB64='';
+}
+
+function irAVender(id){
+  var p=byId(id);if(!p)return;
+  showTab('vender',document.querySelectorAll('.tab')[1]);
+  document.getElementById('ventaCodigo').value=p.codigo||'';
+  buscarParaVenta();
+}
+
+function buscarParaVenta(){
+  var code=document.getElementById('ventaCodigo').value.trim();
+  if(!code){toast('⚠ Ingresa un código','err');return;}
+  lastCode=code;
+  var p=null;for(var i=0;i<inv.length;i++)if(inv[i].codigo===code){p=inv[i];break;}
+  var vc=document.getElementById('ventaCard'),vn=document.getElementById('ventaNotFound');
+  if(p){
+    ventaProdId=p.id;
+    document.getElementById('ventaNombre').textContent=p.nombre;
+    document.getElementById('ventaMeta').textContent=(p.categoria||'')+'  ·  Stock: '+p.stock+'  ·  $'+Number(p.precio).toFixed(2);
+    var fotoEl=document.getElementById('ventaProdFoto');
+    if(p.foto_url&&p.foto_url.indexOf('http')===0){
+      var newEl=document.createElement('img');
+      newEl.id='ventaProdFoto';newEl.className='scan-prod-foto';newEl.src=p.foto_url;
+      newEl.style.cursor='zoom-in';
+      newEl.onclick=function(e){e.preventDefault();e.stopPropagation();verFoto(p.foto_url);};
+      fotoEl.parentNode.replaceChild(newEl,fotoEl);
+    } else {
+      if(fotoEl.tagName==='IMG'){
+        var ph=document.createElement('div');
+        ph.id='ventaProdFoto';ph.className='scan-prod-foto-ph';ph.textContent='📦';
+        fotoEl.parentNode.replaceChild(ph,fotoEl);
+      } else fotoEl.textContent='📦';
+    }
+    document.getElementById('ventaLocal').value=localActual();
+    vc.style.display='block';vn.style.display='none';
+  } else {
+    document.getElementById('ventaCodeNF').textContent=code;
+    vc.style.display='none';vn.style.display='block';
+  }
+}
+
+function prevVentaFoto(e){
+  var file=e.target.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    document.getElementById('ventaFotoPreview').src=ev.target.result;
+    document.getElementById('ventaFotoPreview').style.display='block';
+    document.getElementById('ventaFotoPlaceholder').style.display='none';
+  };
+  r.readAsDataURL(file);
+
+  ventaFotoB64='';
+  ventaFotoSubiendo=true;
+  toast('Subiendo foto de comprobante...','info');
+
+  var fd=new FormData();
+  fd.append('image',file);
+  fetch('https://api.imgbb.com/1/upload?key='+IMGBB_API_KEY,{method:'POST',body:fd})
+    .then(function(res){return res.json();})
+    .then(function(data){
+      ventaFotoSubiendo=false;
+      if(data&&data.success&&data.data&&data.data.url){
+        ventaFotoB64=data.data.url;
+        toast('✓ Foto de comprobante subida');
+      }else{
+        toast('⚠ No se pudo subir la foto de comprobante','err');
+      }
+    })
+    .catch(function(){
+      ventaFotoSubiendo=false;
+      toast('⚠ Error de conexión al subir la foto','err');
+    });
+}
+
+function registrarVenta(){
+  var p=byId(ventaProdId);if(!p){toast('⚠ Selecciona un producto','err');return;}
+  var qty=parseInt(document.getElementById('ventaCantidad').value)||1;
+  var local=document.getElementById('ventaLocal').value;
+  if(p.stock<qty){toast('⚠ Stock insuficiente ('+p.stock+' disponibles)','err');return;}
+  if(ventaFotoSubiendo){toast('⏳ Espera, la foto sigue subiendo...','info');return;}
+  var btn=document.querySelector('#ventaCard .btn-primary');
+  btn.disabled=true;btn.innerHTML='<span class="loading"></span> Registrando...';
+  var nombreV=p.nombre,codigoV=p.codigo,precioV=p.precio,totalV=p.precio*qty;
+  var fechaV=new Date().toLocaleString('es-MX');
+  var fotoProdV=p.foto_url&&p.foto_url.indexOf('http')===0?p.foto_url:'';
+  var fotoVentaV=ventaFotoB64&&ventaFotoB64.indexOf('http')===0?ventaFotoB64:'';
+  p.stock-=qty;addHist(p,'venta',qty,local,ventaFotoB64);save();renderStats();
+  var stockV=p.stock;
+  enviarASheets({
+    accion:'venta',
+    nombre:nombreV||'',
+    codigo:codigoV||'',
+    precio:precioV||0,
+    cantidad:qty,
+    local:local,
+    foto_prod:fotoProdV,
+    foto_venta:fotoVentaV
+  })
+    .then(function(){
+      btn.disabled=false;btn.innerHTML='💳 Confirmar venta y notificar Telegram';
+      toast('✓ Venta registrada y notificada en Telegram');
+      imprimirNotaVenta({nombre:nombreV,codigo:codigoV,precio:precioV,cantidad:qty,total:totalV,
+        local:local,fecha:fechaV,stockNuevo:stockV,foto_prod:fotoProdV,foto_venta:fotoVentaV});
+      resetVenta();
+    }).catch(function(){
+      btn.disabled=false;btn.innerHTML='💳 Confirmar venta y notificar Telegram';
+      toast('Venta guardada localmente','info');
+      imprimirNotaVenta({nombre:nombreV,codigo:codigoV,precio:precioV,cantidad:qty,total:totalV,
+        local:local,fecha:fechaV,stockNuevo:stockV,foto_prod:fotoProdV,foto_venta:fotoVentaV});
+      resetVenta();
+    });
+}
+
+/* ============================================================
+   NOTA DE VENTA (imprimible — clona lo enviado a Telegram)
+============================================================ */
+function generarNotaVentaHTML(d){
+  var filas=[
+    ['📦 Producto',d.nombre],
+    ['🔑 Código',d.codigo],
+    ['💰 Precio','$'+Number(d.precio).toFixed(2)],
+    ['🔢 Cantidad',String(d.cantidad)],
+    ['💵 Total','$'+Number(d.total).toFixed(2)],
+    ['🏪 Local',d.local],
+    ['📅 Fecha',d.fecha],
+    ['📊 Stock restante',String(d.stockNuevo)]
+  ].map(function(f){
+    return '<div class="nota-row"><span class="nota-label">'+f[0]+':</span><span class="nota-value">'+esc(f[1])+'</span></div>';
+  }).join('');
+
+  var fotos='';
+  if(d.foto_prod) fotos+='<div class="nota-foto-block"><img src="'+esc(d.foto_prod)+'" class="nota-foto"><div class="nota-foto-cap">🖼️ Foto del producto</div></div>';
+  if(d.foto_venta) fotos+='<div class="nota-foto-block"><img src="'+esc(d.foto_venta)+'" class="nota-foto"><div class="nota-foto-cap">📸 Foto de la venta</div></div>';
+
+  return '<html><head><meta charset="UTF-8"><title>Nota de venta</title><style>'+
+    '@page{margin:5mm;}'+
+    '*{box-sizing:border-box;}'+
+    'body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;margin:0;padding:0;}'+
+    '.nota{width:80mm;max-width:100%;padding:8px;margin:0 auto;}'+
+    '.nota-header{text-align:center;margin-bottom:10px;border-bottom:2px solid #000;padding-bottom:8px;}'+
+    '.nota-header h1{font-size:1.15rem;font-weight:900;margin:0 0 4px;letter-spacing:.3px;}'+
+    '.nota-header .tel{font-size:.95rem;font-weight:700;margin-top:2px;}'+
+    '.nota-header .whats{font-size:.8rem;font-weight:600;color:#444;margin-top:2px;}'+
+    '.nota-body{padding:6px 0;}'+
+    '.nota-row{display:flex;justify-content:space-between;gap:10px;font-size:.85rem;padding:4px 0;border-bottom:1px dashed #ccc;}'+
+    '.nota-label{font-weight:700;white-space:nowrap;}'+
+    '.nota-value{text-align:right;word-break:break-word;}'+
+    '.nota-fotos{margin-top:10px;display:flex;flex-direction:column;gap:10px;}'+
+    '.nota-foto-block{text-align:center;}'+
+    '.nota-foto{width:100%;max-width:100%;border:1px solid #ccc;border-radius:6px;}'+
+    '.nota-foto-cap{font-size:.7rem;color:#555;margin-top:3px;}'+
+    '@media print{.nota{width:100%;}}'+
+    '</style></head><body>'+
+    '<div class="nota">'+
+      '<div class="nota-header">'+
+        '<h1>REPARACIÓN DE CELULARES</h1>'+
+        '<div class="tel">📞 477 456 2700</div>'+
+        '<div class="whats">Cotiza por WhatsApp</div>'+
+      '</div>'+
+      '<div class="nota-body">'+filas+'</div>'+
+      (fotos?'<div class="nota-fotos">'+fotos+'</div>':'')+
+    '</div>'+
+    '</body></html>';
+}
+
+function imprimirNotaVenta(d){
+  var w=window.open('','_blank','width=380,height=700');
+  if(!w){toast('⚠ El navegador bloqueó la ventana de impresión','err');return;}
+  w.document.write(generarNotaVentaHTML(d));
+  w.document.close();
+  w.onload=function(){
+    setTimeout(function(){w.print();},150);
+  };
+}
+
+/* ============================================================
+   HISTORIAL
+============================================================ */
+function addHist(p,tipo,qty,local,foto){
+  hist.unshift({fecha:new Date().toLocaleString('es-MX'),nombre:p.nombre,codigo:p.codigo||'',
+    tipo:tipo,qty:qty,stockDespues:tipo==='entrada'?p.stock+qty:p.stock-qty,local:local||'',foto:foto||'',fotoProd:p.foto_url||''});
+  if(hist.length>500)hist.pop();save();
+}
+function fotoDeHistorial(h){
+  if(h.foto&&h.foto.indexOf('data:')===0) return h.foto;
+  if(h.fotoProd&&h.fotoProd.indexOf('http')===0) return h.fotoProd;
+  return '';
+}
+function renderHistory(){
+  var filtro=document.getElementById('histFiltro').value;
+  var data=filtro?hist.filter(function(h){return h.tipo===filtro;}):hist;
+  var el=document.getElementById('historyList');
+  if(!data.length){el.innerHTML='<div class="empty-state"><div class="emoji">📋</div><p>Sin movimientos aún</p></div>';return;}
+  el.innerHTML=data.map(function(h){
+    var bc=h.tipo==='venta'?'hi-venta':h.tipo==='entrada'?'hi-in':'hi-out';
+    var bt=h.tipo==='venta'?'💳 -'+h.qty:h.tipo==='entrada'?'+'+h.qty:'-'+h.qty;
+    var fe=fotoDeHistorial(h)?'<img class="hi-foto" src="'+fotoDeHistorial(h)+'" onclick="verFoto(\''+fotoDeHistorial(h)+'\')" style="cursor:zoom-in">':'<div class="hi-foto-ph">📦</div>';
+    return '<div class="history-item"><div class="hi-left">'+fe+
+      '<div><div class="hi-name">'+esc(h.nombre)+'</div>'+
+      '<div class="hi-meta">'+h.fecha+(h.local?' · '+h.local:'')+'</div></div></div>'+
+      '<span class="hi-badge '+bc+'">'+bt+'</span></div>';
+  }).join('');
+}
+
+function clearHistory(){
+  if(!confirm('¿Limpiar todo el historial?'))return;
+  hist=[];save();renderHistory();toast('Historial limpiado');
+}
+
+/* ============================================================
+   CÓDIGOS DE BARRAS
+============================================================ */
+function renderBarcodes(){
+  var el=document.getElementById('barcodeList');
+  if(!inv.length){el.innerHTML='<div class="empty-state"><div class="emoji">🏷️</div><p>No hay productos</p></div>';return;}
+  var html='<div class="barcode-grid">';
+  for(var i=0;i<inv.length;i++){
+    var p=inv[i];
+    var code=p.codigo||('SC'+String(p.id).padStart(5,'0'));
+    html+='<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center;">'+
+      '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;justify-content:center;margin-bottom:8px;">'+
+      '<input type="checkbox" class="bc-check" data-id="'+p.id+'" checked style="accent-color:var(--accent)">'+
+      '<span style="font-size:.8rem;font-weight:600">'+esc(p.nombre)+'</span></label>'+
+      generarBarcodeSVG(code)+
+      '<div style="font-size:.68rem;font-family:monospace;color:var(--muted);margin-top:3px">'+esc(code)+'</div>'+
+      '<div style="font-size:.75rem;font-weight:700;color:var(--accent);margin-top:2px">$'+Number(p.precio).toFixed(2)+'</div></div>';
+  }
+  el.innerHTML=html+'</div>';
+}
+
+function generarBarcodeSVG(code){
+  var seed=0;
+  for(var i=0;i<code.length;i++)seed=(seed*31+code.charCodeAt(i))&0xFFFFFF;
+  var patron='11010000100';
+  for(var i=0;i<code.length;i++){
+    var bits=((code.charCodeAt(i)*seed)>>>0).toString(2).padStart(8,'0').slice(0,8);
+    patron+=bits;
+  }
+  patron+='1100011101011';
+  var W=150,H=60,x=4,bw=(W-8)/patron.length;
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'"><rect width="'+W+'" height="'+H+'" fill="white"/>';
+  for(var i=0;i<patron.length;i++){
+    if(patron[i]==='1')svg+='<rect x="'+(x+i*bw).toFixed(2)+'" y="4" width="'+(bw+.5).toFixed(2)+'" height="'+(H-12)+'" fill="black"/>';
+  }
+  svg+='<text x="'+(W/2)+'" y="'+(H-2)+'" text-anchor="middle" font-size="7" font-family="monospace" fill="#333">'+esc(code)+'</text></svg>';
+  return svg;
+}
+
+function selAll(val){document.querySelectorAll('.bc-check').forEach(function(c){c.checked=val;});}
+
+function imprimirCodigos(){
+  var checks=document.querySelectorAll('.bc-check:checked');
+  if(!checks.length){toast('⚠ Selecciona al menos un producto','err');return;}
+  var html='<html><head><style>body{font-family:sans-serif;margin:0;padding:10px;}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}.item{border:1px solid #ccc;border-radius:6px;padding:8px;text-align:center;page-break-inside:avoid;}.item svg{width:100%;height:auto;}.name{font-size:9px;font-weight:700;margin-top:3px;}.price{font-size:10px;font-weight:900;}</style></head><body><div class="grid">';
+  checks.forEach(function(c){
+    var p=byId(Number(c.dataset.id));if(!p)return;
+    var code=p.codigo||('SC'+String(p.id).padStart(5,'0'));
+    html+='<div class="item">'+generarBarcodeSVG(code)+'<div class="name">'+esc(p.nombre)+'</div><div class="price">$'+Number(p.precio).toFixed(2)+'</div></div>';
+  });
+  html+='</div></body></html>';
+  var w=window.open('','_blank','width=800,height=600');
+  w.document.write(html);w.document.close();w.print();
+}
+
+/* ============================================================
+   IMPORTAR CSV
+============================================================ */
+function openImportModal(){
+  pending=[];
+  document.getElementById('importPreview').innerHTML='';
+  document.getElementById('importFooter').style.display='none';
+  document.getElementById('fileInput').value='';
+  document.getElementById('modalImport').classList.add('open');
+}
+function closeImportModal(){document.getElementById('modalImport').classList.remove('open');pending=[];}
+function dzOver(e){e.preventDefault();document.getElementById('dropZone').classList.add('dragover');}
+function dzLeave(){document.getElementById('dropZone').classList.remove('dragover');}
+function dzDrop(e){e.preventDefault();dzLeave();var f=e.dataTransfer.files[0];if(f)leerCSV(f);}
+function fileSelected(e){var f=e.target.files[0];if(f)leerCSV(f);}
+function leerCSV(file){
+  var r=new FileReader();
+  r.onload=function(e){procesarCSV(e.target.result);};
+  r.onerror=function(){toast('No se pudo leer el archivo','err');};
+  r.readAsText(file,'UTF-8');
+}
+function procesarCSV(text){
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  var lines=text.split('\n').filter(function(l){return l.trim()!=='';});
+  if(!lines.length){toast('Archivo vacío','err');return;}
+  var sep=lines[0].indexOf('\t')>-1?'\t':lines[0].indexOf(';')>-1?';':',';
+  var rows=lines.map(function(l){return parseLine(l,sep);});
+  var kw=['nombre','name','codigo','categ','precio','costo','stock','min'];
+  var first=rows[0].map(function(c){return c.toLowerCase().trim();});
+  var isHdr=first.some(function(c){return kw.some(function(k){return c.indexOf(k)>=0;});});
+  var cm={nombre:-1,codigo:-1,categoria:-1,precio:-1,costo:-1,stock:-1,min:-1};
+  if(isHdr){
+    first.forEach(function(c,i){
+      if(/nombre|name|producto/.test(c))cm.nombre=i;
+      if(/codigo|code|barcode|sku/.test(c))cm.codigo=i;
+      if(/categ/.test(c))cm.categoria=i;
+      if(/precio|price|venta/.test(c))cm.precio=i;
+      if(/costo|cost/.test(c))cm.costo=i;
+      if(/stock|cantidad|qty/.test(c))cm.stock=i;
+      if(/^min/.test(c))cm.min=i;
+    });
+  } else cm={nombre:0,codigo:1,categoria:2,precio:3,costo:4,stock:5,min:6};
+  if(cm.nombre<0)cm.nombre=0;
+  var data=isHdr?rows.slice(1):rows;
+  pending=[];var errCnt=0,dupCnt=0;
+  for(var i=0;i<data.length;i++){
+    var r=data[i];
+    if(r.every(function(c){return c.trim()==='';}) )continue;
+    var nombre=(cm.nombre>=0&&r[cm.nombre])?r[cm.nombre].trim():'';
+    if(!nombre){errCnt++;continue;}
+    var codigo=(cm.codigo>=0&&r[cm.codigo])?r[cm.codigo].trim():'';
+    var dup=codigo!==''&&inv.some(function(p){return p.codigo===codigo;});
+    pending.push({nombre:nombre,codigo:codigo,
+      categoria:(cm.categoria>=0&&r[cm.categoria])?r[cm.categoria].trim():'',
+      precio:parseFloat(r[cm.precio])||0,costo:parseFloat(r[cm.costo])||0,
+      stock:parseInt(r[cm.stock])||0,min:parseInt(r[cm.min])||5,dup:dup,foto_url:''});
+    if(dup)dupCnt++;
+  }
+  var okCnt=pending.filter(function(r){return!r.dup;}).length;
+  var html='<div class="imp-summary">'+
+    '<span class="imp-chip chip-ok">✓ '+okCnt+' nuevos</span>'+
+    (dupCnt?'<span class="imp-chip chip-dup">⚠ '+dupCnt+' duplicados</span>':'')+
+    (errCnt?'<span class="imp-chip chip-err">✕ '+errCnt+' sin nombre</span>':'')+
+    '</div>';
+  if(!pending.length)html+='<div class="empty-state"><div class="emoji">😕</div><p>Sin productos válidos</p></div>';
+  else{
+    html+='<div class="imp-table-wrap"><table><thead><tr><th>Nombre</th><th>Código</th><th>Precio</th><th>Stock</th><th></th></tr></thead><tbody>';
+    for(var i=0;i<pending.length;i++){
+      var r=pending[i];
+      html+='<tr class="'+(r.dup?'row-dup':'row-ok')+'"><td>'+esc(r.nombre)+'</td><td style="font-family:monospace;color:var(--muted)">'+(r.codigo||'—')+'</td><td>$'+r.precio.toFixed(2)+'</td><td>'+r.stock+'</td><td>'+(r.dup?'<span style="color:var(--warn);font-size:.74rem">⚠</span>':'<span style="color:var(--accent);font-size:.74rem">✓</span>')+'</td></tr>';
+    }
+    html+='</tbody></table></div>';
+    document.getElementById('importFooter').style.display='flex';
+  }
+  document.getElementById('importPreview').innerHTML=html;
+}
+function parseLine(line,sep){
+  var res=[],cur='',inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(c===sep&&!inQ){res.push(cur);cur='';}
+    else cur+=c;
+  }
+  res.push(cur);return res;
+}
+function confirmarImport(){
+  var added=0,skip=0;
+  for(var i=0;i<pending.length;i++){
+    var r=pending[i];
+    if(r.dup){skip++;continue;}
+    inv.push({id:nid(),nombre:r.nombre,codigo:r.codigo,categoria:r.categoria,
+      precio:r.precio,costo:r.costo,stock:r.stock,min:r.min,foto_url:''});
+    added++;
+  }
+  save();renderTable();closeImportModal();
+  toast('✓ '+added+' importados'+(skip?' ('+skip+' omitidos)':''));
+}
+
+/* ============================================================
+   EXPORTAR CSV
+============================================================ */
+function exportarCSV(){
+  var rows=['nombre,codigo,categoria,precio,costo,stock,min,foto_url'];
+  for(var i=0;i<inv.length;i++){
+    var p=inv[i];
+    rows.push([cv(p.nombre),cv(p.codigo),cv(p.categoria),p.precio,p.costo,p.stock,p.min,cv(p.foto_url)].join(','));
+  }
+  var blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='inventario_raul.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  toast('⬇ CSV exportado');
+}
+function cv(v){v=String(v||'');if(/[,"\n]/.test(v))v='"'+v.replace(/"/g,'""')+'"';return v;}
+
+/* ============================================================
+   VISOR DE FOTO
+============================================================ */
+function verFoto(url){
+  if(!url)return;
+  document.getElementById('fotoViewerImg').src=url;
+  document.getElementById('fotoViewerBg').style.backgroundImage='url("'+url+'")';
+  document.getElementById('fotoViewer').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function cerrarFoto(){
+  document.getElementById('fotoViewer').style.display='none';
+  document.getElementById('fotoViewerImg').src='';
+  document.getElementById('fotoViewerBg').style.backgroundImage='';
+  document.body.style.overflow='';
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')cerrarFoto();});
+
+/* ============================================================
+   TOAST
+============================================================ */
+function toast(msg,tipo){
+  var el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast'+(tipo?' '+tipo:'');
+  el.classList.add('show');clearTimeout(el._t);
+  el._t=setTimeout(function(){el.classList.remove('show');},2800);
+}
+
+/* ============================================================
+   CÁMARA
+============================================================ */
+var camStream=null,camTimer=null;
+
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1);}
+function iniciarCamaraModal(){iniciarCamara('modal');}
+
+function iniciarCamara(ctx){
+  var c=cap(ctx);
+  var video=document.getElementById('camVideo'+c);
+  var wrap=document.getElementById('camWrap'+c);
+  var status=document.getElementById('camStatus'+c);
+  var bs=document.getElementById('btnCam'+c);
+  var bst=document.getElementById('btnCam'+c+'Stop');
+  if(!video){alert('No se encontró elemento de video para: '+ctx);return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){alert('Tu navegador no soporta cámara');return;}
+  if(bs)bs.style.display='none';
+  if(bst)bst.style.display='inline-flex';
+  if(status)status.textContent='Abriendo cámara...';
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}})
+    .then(function(stream){
+      camStream=stream;video.srcObject=stream;video.play();
+      if(wrap)wrap.style.display='block';
+      if(status)status.textContent='📡 Apunta al código de barras...';
+      if('BarcodeDetector' in window){
+        var det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code','code_93']});
+        var ul='',ut=0;
+        camTimer=setInterval(function(){
+          if(video.readyState<2)return;
+          det.detect(video).then(function(r){
+            if(!r.length)return;
+            var code=r[0].rawValue,now=Date.now();
+            if(code===ul&&now-ut<3000)return;
+            ul=code;ut=now;
+            if(navigator.vibrate)navigator.vibrate(200);
+            if(status)status.textContent='✅ '+code;
+            detenerCamara(ctx);
+            if(ctx==='venta'){
+              var el=document.getElementById('ventaCodigo');if(el)el.value=code;
+              setTimeout(function(){buscarParaVenta();},300);
+            } else if(ctx==='modal'){
+              var el=document.getElementById('fCodigo');if(el)el.value=code;
+              toast('Código escaneado: '+code);
+            } else if(ctx==='inv'){
+              var el=document.getElementById('searchInputCam');if(el)el.value=code;
+              renderTable(code);
+            } else if(ctx==='escanear'){
+              var el=document.getElementById('manualCode');if(el)el.value=code;
+              setTimeout(function(){buscarCodigo();},300);
+            }
+          }).catch(function(){});
+        },400);
+      } else {
+        if(status)status.textContent='Cámara activa — escribe el código que ves';
+      }
+    }).catch(function(e){
+      if(bs)bs.style.display='inline-flex';
+      if(bst)bst.style.display='none';
+      if(status)status.textContent='';
+      alert('Error al abrir cámara: '+e.message);
+    });
+}
+
+function detenerCamara(ctx){
+  if(camTimer){clearInterval(camTimer);camTimer=null;}
+  if(camStream){try{camStream.getTracks().forEach(function(t){t.stop();});}catch(e){}camStream=null;}
+  var c=cap(ctx);
+  var v=document.getElementById('camVideo'+c);if(v)try{v.srcObject=null;}catch(e){}
+  var w=document.getElementById('camWrap'+c);if(w)w.style.display='none';
+  var bs=document.getElementById('btnCam'+c);if(bs)bs.style.display='inline-flex';
+  var bst=document.getElementById('btnCam'+c+'Stop');if(bst)bst.style.display='none';
+  var st=document.getElementById('camStatus'+c);if(st)st.textContent='';
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+renderStats();
+renderTable();
+autoSync();
+</script>
+</body>
+</html>
