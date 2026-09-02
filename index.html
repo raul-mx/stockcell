@@ -226,10 +226,9 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
 <header>
   <div class="logo">Stock<span>Cell</span></div>
   <div class="header-right">
-    <select class="local-sel" id="localSel">
-      <option value="COECILLO">🏪 COECILLO</option>
-      <option value="10K HIDALGO-VALTIERRA">🏪 10K HIDALGO-VALTIERRA</option>
+    <select class="local-sel" id="localSel" onchange="onLocalSelChange()">
     </select>
+    <button class="btn btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="pedirNuevaSucursal()" title="Agregar sucursal">＋🏪</button>
     <div class="sync-indicator" id="syncInd">
       <span class="sync-dot" id="syncDot"></span>
       <span id="syncTxt">Sin sincronizar</span>
@@ -241,6 +240,7 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
 <nav>
   <button class="tab active" onclick="showTab('inventario',this)">📦 Inventario</button>
   <button class="tab" onclick="showTab('vender',this)">💳 Vender</button>
+  <button class="tab" onclick="showTab('general',this)">🌐 General</button>
   <button class="tab" onclick="showTab('historial',this)">📋 Historial</button>
   <button class="tab" onclick="showTab('codigos',this)">🖨️ Códigos</button>
 </nav>
@@ -299,9 +299,9 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
     </div>
   </div>
   <div class="toolbar">
-    <button class="btn btn-primary" onclick="openAddModal()">＋ Agregar</button>
-    <button class="btn btn-warn" onclick="openImportModal()">📂 Importar</button>
-    <button class="btn btn-print" onclick="exportarCSV()">⬇ CSV</button>
+    <button class="btn btn-primary" onclick="pedirAdmin(openAddModal)">＋ Agregar</button>
+    <button class="btn btn-warn" onclick="pedirAdmin(openImportModal)">📂 Importar</button>
+    <button class="btn btn-print" onclick="pedirAdmin(exportarCSV)">⬇ CSV</button>
     <button class="btn btn-tg" onclick="sincronizarSheets()">☁️ Sync Sheets</button>
   </div>
   <div class="table-wrap">
@@ -356,9 +356,7 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
           </div>
           <div class="form-group" style="margin:0">
             <label>Local</label>
-            <select id="ventaLocal">
-              <option>COECILLO</option>
-              <option>10K HIDALGO-VALTIERRA</option>
+            <select id="ventaLocal" onchange="if(document.getElementById('ventaCodigo').value.trim())buscarParaVenta();">
             </select>
           </div>
         </div>
@@ -383,8 +381,25 @@ tbody tr.out-stock{background:rgba(255,95,87,.04);}
       <p style="color:var(--accent2);font-weight:700;margin-bottom:4px">Producto no encontrado</p>
       <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px">
         Código: <span id="ventaCodeNF" style="font-family:monospace;color:var(--text)"></span></p>
-      <button class="btn btn-primary" onclick="openAddModalWithCode()">＋ Agregar este producto</button>
+      <button class="btn btn-primary" onclick="pedirAdmin(openAddModalWithCode)">＋ Agregar este producto</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== INVENTARIO GENERAL (todas las sucursales) ===== -->
+<div class="panel" id="panel-general">
+  <h2 style="margin-bottom:6px;font-size:1.1rem;">Inventario general</h2>
+  <p style="color:var(--muted);font-size:.83rem;margin-bottom:16px;">Stock consolidado de todas las sucursales, por producto.</p>
+  <div class="toolbar">
+    <input class="search-box" type="text" id="searchGeneral" placeholder="Buscar por nombre o código..." oninput="renderGeneral()">
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Producto</th><th>Código</th><th>Stock total</th><th>Por sucursal</th>
+      </tr></thead>
+      <tbody id="tableBodyGeneral"></tbody>
+    </table>
   </div>
 </div>
 
@@ -542,6 +557,7 @@ var IMGBB_API_KEY='2871163e042e517748370770af4240a5';
    DATOS
 ============================================================ */
 var inv=[],hist=[],editId=null,lastCode='',pending=[],ventaProdId=null,ventaFotoB64='',ventaFotoSubiendo=false;
+var sucursales=['COECILLO','10K HIDALGO-VALTIERRA'],adminUnlocked=false;
 
 try{inv=JSON.parse(localStorage.getItem('sc_inv')||'[]');}catch(e){inv=[];}
 try{hist=JSON.parse(localStorage.getItem('sc_his')||'[]');}catch(e){hist=[];}
@@ -571,7 +587,8 @@ function cargarDesdeSheets(data){
     if(!p.nombre)return;
     inv.push({id:i+1,nombre:String(p.nombre||''),codigo:String(p.codigo||''),
       categoria:String(p.categoria||''),precio:Number(p.precio)||0,costo:String(p.costo||''),
-      stock:Number(p.stock)||0,min:Number(p.min)||5,foto_url:String(p.foto_url||'')});
+      stock:Number(p.stock)||0,min:Number(p.min)||5,foto_url:String(p.foto_url||''),
+      sucursal:String(p.sucursal||sucursales[0]||'COECILLO')});
   });
   save();renderStats();renderTable();
 }
@@ -617,6 +634,84 @@ function enviarASheets(data){
     body:JSON.stringify(data),mode:'no-cors'}).then(function(){return{ok:true};});
 }
 
+/* Versión que SÍ lee la respuesta real del backend (para admin y sucursales) */
+function enviarASheetsLeer(data){
+  return fetch(WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(data)}).then(function(r){return r.json();});
+}
+
+/* ============================================================
+   SUCURSALES
+============================================================ */
+function renderSucursalSelects(){
+  var prevLocal=localStorage.getItem('sc_local')||sucursales[0];
+  if(sucursales.indexOf(prevLocal)<0)prevLocal=sucursales[0];
+  var selLocal=document.getElementById('localSel');
+  selLocal.innerHTML=sucursales.map(function(s){return '<option value="'+esc(s)+'">🏪 '+esc(s)+'</option>';}).join('');
+  selLocal.value=prevLocal;
+  localStorage.setItem('sc_local',prevLocal);
+  var selVenta=document.getElementById('ventaLocal');
+  if(selVenta){
+    selVenta.innerHTML=sucursales.map(function(s){return '<option>'+esc(s)+'</option>';}).join('');
+    selVenta.value=prevLocal;
+  }
+  renderStats();renderTable();
+}
+
+function cargarSucursales(){
+  fetch(WEBAPP_URL+'?accion=get_sucursales')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.ok&&data.sucursales&&data.sucursales.length){
+        sucursales=data.sucursales;
+      }
+      renderSucursalSelects();
+    }).catch(function(){renderSucursalSelects();});
+}
+
+function onLocalSelChange(){
+  localStorage.setItem('sc_local',document.getElementById('localSel').value);
+  renderStats();renderTable();
+  if(document.getElementById('panel-general').classList.contains('active'))renderGeneral();
+  if(document.getElementById('panel-vender').classList.contains('active'))resetVenta();
+}
+
+function pedirNuevaSucursal(){
+  var nombre=prompt('Nombre de la nueva sucursal:');
+  if(nombre===null)return;
+  nombre=nombre.trim();
+  if(!nombre){toast('⚠ Nombre vacío','err');return;}
+  enviarASheetsLeer({accion:'alta_sucursal',nombre:nombre})
+    .then(function(data){
+      if(data.ok){
+        toast('✓ Sucursal agregada');
+        localStorage.setItem('sc_local',nombre);
+        cargarSucursales();
+      } else {
+        toast(data.msg||'No se pudo agregar','err');
+      }
+    }).catch(function(){toast('⚠ Error de conexión','err');});
+}
+
+/* ============================================================
+   ADMIN (protege Agregar, Importar, CSV)
+============================================================ */
+function pedirAdmin(callback){
+  if(adminUnlocked){callback();return;}
+  var pass=prompt('🔒 Contraseña de administrador:');
+  if(pass===null)return;
+  enviarASheetsLeer({accion:'verify_admin',password:pass})
+    .then(function(data){
+      if(data.ok){
+        adminUnlocked=true;
+        toast('✓ Acceso concedido');
+        callback();
+      } else {
+        toast('⚠ Contraseña incorrecta','err');
+      }
+    }).catch(function(){toast('⚠ Error de conexión','err');});
+}
+
 /* ============================================================
    TABS
 ============================================================ */
@@ -626,6 +721,7 @@ function showTab(name,btn){
   document.getElementById('panel-'+name).classList.add('active');
   btn.classList.add('active');
   if(name==='inventario'){renderStats();renderTable();}
+  if(name==='general')renderGeneral();
   if(name==='historial')renderHistory();
   if(name==='vender')resetVenta();
   if(name==='codigos')renderBarcodes();
@@ -636,10 +732,16 @@ function showTab(name,btn){
 /* ============================================================
    STATS + TABLA
 ============================================================ */
+function invLocal(){
+  var loc=localActual();
+  return inv.filter(function(p){return p.sucursal===loc;});
+}
+
 function renderStats(){
-  var total=inv.length,low=0,out=0,val=0;
-  for(var i=0;i<inv.length;i++){
-    var p=inv[i];
+  var lista=invLocal();
+  var total=lista.length,low=0,out=0,val=0;
+  for(var i=0;i<lista.length;i++){
+    var p=lista[i];
     if(p.stock===0)out++;else if(p.stock<=p.min)low++;
     val+=p.precio*p.stock;
   }
@@ -681,13 +783,14 @@ function renderTable(qOverride){
   else if(txtInput)q=txtInput.value.toLowerCase();
 
   var cats={};
-  for(var i=0;i<inv.length;i++)if(inv[i].categoria)cats[inv[i].categoria]=1;
+  var listaLocal=invLocal();
+  for(var i=0;i<listaLocal.length;i++)if(listaLocal[i].categoria)cats[listaLocal[i].categoria]=1;
   var ck=Object.keys(cats),sel=document.getElementById('filterCat'),prev=sel.value;
   sel.innerHTML='<option value="">Todas las categorías</option>';
   for(var i=0;i<ck.length;i++){var o=document.createElement('option');o.value=ck[i];o.textContent=ck[i];if(ck[i]===prev)o.selected=true;sel.appendChild(o);}
 
   var cat=sel.value;
-  var fil=inv.filter(function(p){
+  var fil=listaLocal.filter(function(p){
     return(p.nombre.toLowerCase().indexOf(q)>=0||(p.codigo||'').indexOf(q)>=0)&&(cat?p.categoria===cat:true);
   });
   var tb=document.getElementById('tableBody');
@@ -828,7 +931,8 @@ function saveProduct(){
     costo:document.getElementById('fCosto').value.trim(),
     stock:parseInt(document.getElementById('fStock').value)||0,
     min:parseInt(document.getElementById('fMin').value)||5,
-    foto_url:convertirUrlFoto(fotoRaw)
+    foto_url:convertirUrlFoto(fotoRaw),
+    sucursal:editId?byId(editId).sucursal:localActual()
   };
 
   var btn=document.getElementById('btnSave');
@@ -837,7 +941,7 @@ function saveProduct(){
   if(editId){
     var p=byId(editId);Object.assign(p,obj);
     save();renderTable();
-    enviarASheets({accion:'update_producto',codigo:obj.codigo,nombre:obj.nombre,
+    enviarASheets({accion:'update_producto',codigo:obj.codigo,sucursal:obj.sucursal,nombre:obj.nombre,
       categoria:obj.categoria,precio:obj.precio,costo:obj.costo,stock:obj.stock,
       min:obj.min,foto_url:obj.foto_url&&obj.foto_url.indexOf('http')===0?obj.foto_url:''});
     closeAddModal();
@@ -845,7 +949,7 @@ function saveProduct(){
     btn.disabled=false;btn.innerHTML='💾 Guardar';
   } else {
     obj.id=nid();inv.push(obj);save();renderTable();
-    enviarASheets({accion:'alta_producto',nombre:obj.nombre,codigo:obj.codigo,
+    enviarASheets({accion:'alta_producto',nombre:obj.nombre,codigo:obj.codigo,sucursal:obj.sucursal,
       categoria:obj.categoria,precio:obj.precio,costo:obj.costo,stock:obj.stock,
       min:obj.min,foto_url:obj.foto_url&&obj.foto_url.indexOf('http')===0?obj.foto_url:''
     }).then(function(){
@@ -883,7 +987,8 @@ function buscarParaVenta(){
   var code=document.getElementById('ventaCodigo').value.trim();
   if(!code){toast('⚠ Ingresa un código','err');return;}
   lastCode=code;
-  var p=null;for(var i=0;i<inv.length;i++)if(inv[i].codigo===code){p=inv[i];break;}
+  var sucursalVenta=document.getElementById('ventaLocal').value||localActual();
+  var p=null;for(var i=0;i<inv.length;i++)if(inv[i].codigo===code&&inv[i].sucursal===sucursalVenta){p=inv[i];break;}
   var vc=document.getElementById('ventaCard'),vn=document.getElementById('ventaNotFound');
   if(p){
     ventaProdId=p.id;
@@ -903,7 +1008,6 @@ function buscarParaVenta(){
         fotoEl.parentNode.replaceChild(ph,fotoEl);
       } else fotoEl.textContent='📦';
     }
-    document.getElementById('ventaLocal').value=localActual();
     vc.style.display='block';vn.style.display='none';
   } else {
     document.getElementById('ventaCodeNF').textContent=code;
@@ -1046,6 +1150,43 @@ function imprimirNotaVenta(d){
 }
 
 /* ============================================================
+   INVENTARIO GENERAL (todas las sucursales)
+============================================================ */
+function renderGeneral(){
+  var q=(document.getElementById('searchGeneral').value||'').toLowerCase();
+  var grupos={};
+  var orden=[];
+  for(var i=0;i<inv.length;i++){
+    var p=inv[i];
+    var clave=p.codigo?('C:'+p.codigo):('N:'+p.nombre);
+    if(!grupos[clave]){
+      grupos[clave]={nombre:p.nombre,codigo:p.codigo,total:0,porSucursal:{}};
+      orden.push(clave);
+    }
+    grupos[clave].total+=p.stock;
+    grupos[clave].porSucursal[p.sucursal]=(grupos[clave].porSucursal[p.sucursal]||0)+p.stock;
+  }
+  var filas=orden.map(function(k){return grupos[k];}).filter(function(g){
+    return g.nombre.toLowerCase().indexOf(q)>=0||(g.codigo||'').indexOf(q)>=0;
+  });
+  var tb=document.getElementById('tableBodyGeneral');
+  if(!filas.length){tb.innerHTML='<tr><td colspan="4"><div class="empty-state"><div class="emoji">🌐</div><p>Sin resultados</p></div></td></tr>';return;}
+  var html='';
+  for(var i=0;i<filas.length;i++){
+    var g=filas[i];
+    var desglose=Object.keys(g.porSucursal).map(function(s){
+      return '<span class="stock-pill stock-ok" style="margin:2px 4px 2px 0;">'+esc(s)+': '+g.porSucursal[s]+'</span>';
+    }).join('');
+    html+='<tr>'+
+      '<td><strong>'+esc(g.nombre)+'</strong></td>'+
+      '<td><span style="font-family:monospace;font-size:.77rem;color:var(--muted)">'+(g.codigo||'—')+'</span></td>'+
+      '<td style="font-weight:800">'+g.total+'</td>'+
+      '<td>'+desglose+'</td></tr>';
+  }
+  tb.innerHTML=html;
+}
+
+/* ============================================================
    HISTORIAL
 ============================================================ */
 function addHist(p,tipo,qty,local,foto){
@@ -1185,7 +1326,7 @@ function procesarCSV(text){
     var nombre=(cm.nombre>=0&&r[cm.nombre])?r[cm.nombre].trim():'';
     if(!nombre){errCnt++;continue;}
     var codigo=(cm.codigo>=0&&r[cm.codigo])?r[cm.codigo].trim():'';
-    var dup=codigo!==''&&inv.some(function(p){return p.codigo===codigo;});
+    var dup=codigo!==''&&invLocal().some(function(p){return p.codigo===codigo;});
     pending.push({nombre:nombre,codigo:codigo,
       categoria:(cm.categoria>=0&&r[cm.categoria])?r[cm.categoria].trim():'',
       precio:parseFloat(r[cm.precio])||0,costo:(cm.costo>=0&&r[cm.costo])?r[cm.costo].trim():'',
@@ -1226,7 +1367,7 @@ function confirmarImport(){
     var r=pending[i];
     if(r.dup){skip++;continue;}
     inv.push({id:nid(),nombre:r.nombre,codigo:r.codigo,categoria:r.categoria,
-      precio:r.precio,costo:r.costo,stock:r.stock,min:r.min,foto_url:''});
+      precio:r.precio,costo:r.costo,stock:r.stock,min:r.min,foto_url:'',sucursal:localActual()});
     added++;
   }
   save();renderTable();closeImportModal();
@@ -1237,10 +1378,10 @@ function confirmarImport(){
    EXPORTAR CSV
 ============================================================ */
 function exportarCSV(){
-  var rows=['nombre,codigo,categoria,precio,costo,stock,min,foto_url'];
+  var rows=['nombre,codigo,categoria,precio,costo,stock,min,foto_url,sucursal'];
   for(var i=0;i<inv.length;i++){
     var p=inv[i];
-    rows.push([cv(p.nombre),cv(p.codigo),cv(p.categoria),p.precio,p.costo,p.stock,p.min,cv(p.foto_url)].join(','));
+    rows.push([cv(p.nombre),cv(p.codigo),cv(p.categoria),p.precio,p.costo,p.stock,p.min,cv(p.foto_url),cv(p.sucursal)].join(','));
   }
   var blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   var url=URL.createObjectURL(blob);
@@ -1356,8 +1497,8 @@ function detenerCamara(ctx){
 /* ============================================================
    INIT
 ============================================================ */
-renderStats();
-renderTable();
+renderSucursalSelects();
+cargarSucursales();
 autoSync();
 </script>
 </body>
